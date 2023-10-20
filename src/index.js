@@ -53,14 +53,17 @@ async function buildWebMap(startUrl, depth = 2) {
     return webMap;
 }
 
-buildWebMap('https://maitridesigns.com', 2).then(data => {
-    axios.post('http://localhost:8000/api/store-webmap', data)
-         .then(response => {
-             console.log('Data sent to backend:', response.data);
-         })
-         .catch(error => {
-             console.error('Error sending data to backend:', error);
-         });
+buildWebMap('https://maitridesigns.com', 2).then(webMap => {
+    // Iterate over the webMap object and send each URL and its links to the backend
+    for (let [url, links] of Object.entries(webMap)) {
+        axios.post('http://localhost:8000/api/store-webmap', { url: url, links: links })
+             .then(response => {
+                 console.log(`Data for ${url} sent to backend:`, response.data);
+             })
+             .catch(error => {
+                 console.error(`Error sending data for ${url} to backend:`, error);
+             });
+    }
 });
 
 
