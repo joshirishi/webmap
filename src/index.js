@@ -6,19 +6,22 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// Function to scrape links from a given webpage
+// Function to scrape links and their titles from a given webpage
 async function scrapeLinks(url) {
     const browser = await puppeteer.launch();
     const page = await browser.newPage();
 
     try {
         await page.goto(url, { waitUntil: 'networkidle2' });
-        const links = await page.$$eval('a', anchors => {
-            return anchors.map(anchor => anchor.href);
+        const data = await page.$$eval('a', anchors => {
+            return anchors.map(anchor => ({
+                href: anchor.href,
+                title: anchor.innerText.trim()
+            }));
         });
 
         await browser.close();
-        return links;
+        return data;
     } catch (error) {
         console.error(`Failed to scrape ${url}: ${error.message}`);
         await browser.close();
@@ -33,16 +36,16 @@ async function buildWebMap(startUrl, depth = 2) {
     async function crawl(url, level) {
         if (level > depth) return;
 
-        const links = await scrapeLinks(url);
-        webMap[url] = links;
+        const data = await scrapeLinks(url);
+        webMap[url] = data.map(linkObj => linkObj.href);  // Store only hrefs for compatibility with your backend
 
         process.stdout.write('#');
 
         // Use Promise.all() to handle multiple pages concurrently
         const promises = [];
-        for (let link of links) {
-            if (!webMap[link]) {
-                promises.push(crawl(link, level + 1));
+        for (let linkObj of data) {
+            if (!webMap[linkObj.href]) {
+                promises.push(crawl(linkObj.href, level + 1));
             }
         }
         await Promise.all(promises);
@@ -65,6 +68,5 @@ buildWebMap('https://maitridesigns.com', 2).then(webMap => {
              });
     }
 });
-
 
 module.exports = buildWebMap;
