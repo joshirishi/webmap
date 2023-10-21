@@ -240,4 +240,10 @@ function transformData(data) {
     nodes = [...new Set(nodes.map(node => node.id))].map(id => ({ id }));
 
     return { nodes, links };
+<<<<<<< Updated upstream
 }*/
+=======
+}
+
+//neet to get the representation right
+>>>>>>> Stashed changes
