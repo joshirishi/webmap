@@ -16,7 +16,13 @@ async function scrapeWebMap(url, depth = 0) {
         headless: "new",
         args: [
             '--no-sandbox',
-            '--disable-setuid-sandbox'
+            '--disable-setuid-sandbox',
+            '--disable-gpu',
+            '--disable-dev-shm-usage',
+            '--no-first-run',
+            '--no-zygote',
+            '--single-process',
+            '--disable-extensions'
         ]
     });
     const page = await browser.newPage();
