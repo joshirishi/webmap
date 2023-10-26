@@ -1,15 +1,24 @@
 const puppeteer = require('puppeteer');
 const axios = require('axios');
 
-const targetUrl = process.argv[2] || 'https://maitridesigns.com'; // Use passed URL or default to maitridesigns.com
-const maxDepth = 2; // Limit the depth of scraping to avoid too many requests
+const maxDepth = 2; // Limit the scraping depth to 3
+const visitedUrls = new Set(); // Set to track visited URLs
 
 async function scrapeWebMap(url, depth = 0) {
-    if (depth > maxDepth) {
-        return { id: url };
+    if (depth > maxDepth || visitedUrls.has(url)) {
+        console.log('url visited:', url);
+        return { name: url, value: "" }; // Return the URL with an empty value
     }
 
-    const browser = await puppeteer.launch();
+    visitedUrls.add(url); // Mark the URL as visited
+
+    const browser = await puppeteer.launch({
+        headless: "new",
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox'
+        ]
+    });
     const page = await browser.newPage();
 
     await page.goto(url, { waitUntil: 'networkidle2' });
@@ -20,22 +29,23 @@ async function scrapeWebMap(url, depth = 0) {
 
     await browser.close();
 
-    const uniqueLinks = [...new Set(links)]; // Remove duplicates
+    const uniqueLinks = [...new Set(links)];
     const children = [];
 
     for (let link of uniqueLinks) {
-        if (link.startsWith(targetUrl)) { // Only follow internal links
+        if (link.startsWith(url)) {
             const childData = await scrapeWebMap(link, depth + 1);
             children.push(childData);
         }
     }
 
     return {
-        id: url,
+        name: url,
+        value: "", // Empty value for now
         children: children.length > 0 ? children : undefined
     };
 }
-
+process.stdout.write('#');
 async function storeWebMapData(data) {
     try {
         const response = await axios.post('http://localhost:8000/api/store-webmap', data);
@@ -46,12 +56,14 @@ async function storeWebMapData(data) {
 }
 
 async function main() {
-    const webMapData = await scrapeWebMap(targetUrl);
+    const targetURL = process.argv[2] || 'https://maitridesigns.com'; // Get the URL from the command line argument or default to 'https://maitridesigns.com'
+    console.log('Starting web scraping...');
+    const webMapData = await scrapeWebMap(targetURL);
     await storeWebMapData(webMapData);
+    console.log('Web scraping completed!');
 }
 
 main();
-
 
 
 /*
