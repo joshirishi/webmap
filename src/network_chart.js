@@ -21,30 +21,31 @@
 
     console.log("Raw Data:", rawData);  // Debugging step to inspect the structure of rawData
 
- function transformData(rawData) {
-  const transformed = {
-    name: "flare",
-    children: []
-  };
+    // function transformData(rawData) {
+    //     const transformed = {
+    //         name: "flare",
+    //         children: []
+    //     };
 
-  if (rawData && Array.isArray(rawData.children)) {
-    transformed.children = rawData.children.map(node => {
-      return {
-        name: node.name,
-        children: node.children ? node.children.map(link => {
-          return {
-            name: link.name,
-            value: 1 // or some other value you want to assign
-          };
-        }) : []
-      };
-    });
-  }
+    //     if (rawData && Array.isArray(rawData.children)) {
+            
+    //         transformed.children = rawData.children.map(node => {
+    //         return {
+    //             name: node.name,
+    //             children: node.children ? node.children.map(link => {
+    //             return {
+    //                 name: link.name,
+    //                 value: 1 // or some other value you want to assign
+    //             };
+    //             }) : []
+    //         };
+    //         });
+    //     }
+    //     console.log(transformed)    
+    //     return transformed;
+    // }
 
-  return transformed;
-}
-
-const data = transformData(rawData);
+    const data = rawData[0];
     
 
     // Specify the chart’s dimensions.
@@ -64,7 +65,7 @@ const data = transformData(rawData);
 
     // Create the container SVG.
     const svg = d3.select("body").append("svg")
-        .attr("width", width)
+                .attr("width", width)
         .attr("height", height)
         .attr("viewBox", [-width / 2, -height / 2, width, height]);
 
@@ -86,11 +87,12 @@ const data = transformData(rawData);
         .join("circle")
         .attr("fill", d => d.children ? null : "#000")
         .attr("stroke", d => d.children ? null : "#fff")
-        .attr("r", 5)
+        .attr("r", d => d.children ? 7 : 5)
         .call(drag(simulation));
 
+    //Adds tooltip to circles
     node.append("title")
-        .text(d => d.data.name);
+        .text(d => d.data.name)
 
     simulation.on("tick", () => {
         link
