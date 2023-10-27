@@ -49,8 +49,8 @@
     
 
     // Specify the chart’s dimensions.
-    const width = 928;
-    const height = 600;
+    const width = 1920;
+    const height = 1080;
 
     // Compute the graph and start the force simulation.
     const root = d3.hierarchy(data); 
@@ -58,8 +58,8 @@
     const nodes = root.descendants();
 
     const simulation = d3.forceSimulation(nodes)
-        .force("link", d3.forceLink(links).id(d => d.id).distance(50).strength(1))
-        .force("charge", d3.forceManyBody().strength(-50))
+        .force("link", d3.forceLink(links).id(d => d.id).distance(100).strength(1))
+        .force("charge", d3.forceManyBody().strength(-200))
         .force("x", d3.forceX())
         .force("y", d3.forceY());
 
@@ -77,18 +77,41 @@
         .data(links)
         .join("line");
 
-    // Append nodes.
-    const node = svg.append("g")
-        .attr("fill", "#fff")
-        .attr("stroke", "#000")
-        .attr("stroke-width", 1.5)
-        .selectAll("circle")
-        .data(nodes)
-        .join("circle")
-        .attr("fill", d => d.children ? null : "#000")
-        .attr("stroke", d => d.children ? null : "#fff")
-        .attr("r", d => d.children ? 7 : 5)
-        .call(drag(simulation));
+    // Append nodes (circles).
+const node = svg.append("g")
+.attr("fill", "#ffffff")
+.attr("stroke", "#28B34B")
+.attr("stroke-width", 1.5)
+.selectAll("circle")
+.data(nodes)
+.join("circle")
+.attr("fill", d => d.children ? null : "#28B34B")
+.attr("stroke", d => d.children ? null : "#fff")
+.attr("r", d => d.children ? 7 : 5)
+.call(drag(simulation));
+
+//helper function
+function extractNodeNameFromUrl(url) {
+    // Remove the "http://" or "https://" prefix
+    const cleanedUrl = url.replace(/^https?:\/\//, '');
+    // Split the URL by '/' and filter out any empty segments
+    const segments = cleanedUrl.split('/').filter(Boolean);
+    // Return the last segment as the node name
+    return segments[segments.length - 1];
+}
+
+// Append node names (text) beside each node.
+const nodeText = svg.append("g")
+    .attr("font-family", "Arial")
+    .attr("font-size", 10)
+    .attr("fill", "black")  // Set a distinct color for the text
+    .selectAll("text")
+    .data(nodes)
+    .join("text")
+    .attr("dx", 12) // Offset the text by 12 units to the right of the node
+    .attr("dy", ".35em") // Vertically center the text with the node
+    .text(d => extractNodeNameFromUrl(d.data.name));
+
 
     //Adds tooltip to circles
     node.append("title")
@@ -104,26 +127,30 @@
         node
             .attr("cx", d => d.x)
             .attr("cy", d => d.y);
+
+        nodeText
+            .attr("x", d => d.x)
+            .attr("y", d => d.y);
     });
 
     function drag(simulation) {
-        function dragstarted(event) {
+        function dragstarted(event, d) {
             if (!event.active) simulation.alphaTarget(0.3).restart();
-            event.subject.fx = event.subject.x;
-            event.subject.fy = event.subject.y;
+            d.fx = d.x;
+            d.fy = d.y;
         }
-
-        function dragged(event) {
-            event.subject.fx = event.x;
-            event.subject.fy = event.y;
+        
+        function dragged(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
         }
-
-        function dragended(event) {
+        
+        function dragended(event, d) {
             if (!event.active) simulation.alphaTarget(0);
-            event.subject.fx = null;
-            event.subject.fy = null;
+            // Comment out the following lines to make the node stay where it is after dragging
+            // d.fx = null;
+            // d.fy = null;
         }
-
         return d3.drag()
             .on("start", dragstarted)
             .on("drag", dragged)
