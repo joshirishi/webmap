@@ -128,7 +128,7 @@ async function storeWebMapData(data) {
 
 
 async function main() {
-    const targetURL = process.argv[2] || 'https://maitridesigns.com';
+    const targetURL = process.argv[2] || 'https://maitridesigns.com/';
     console.log('Starting web scraping...');
     storedUrls = await fetchStoredUrls();
     const webMapData = await scrapeWebMap(targetURL, targetURL);

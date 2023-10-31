@@ -1,6 +1,6 @@
 
 (async function() {
-    const targetUrl = 'https://maitridesigns.com';
+    const targetUrl = 'https://maitridesigns.com/';
 
     async function fetchData() {
         try {
