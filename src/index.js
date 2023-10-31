@@ -1,19 +1,59 @@
+
 const puppeteer = require('puppeteer');
 const axios = require('axios');
+const fs = require('fs');
 
-const maxDepth = 2; // Limit the scraping depth to 3
-const visitedUrls = new Set(); // Set to track visited URLs
+const maxDepth = 5; // Maximum number of links to scrape
+const visitedUrls = new Set(); // Set of visited URLs
+const batchSize = 3; // Number of URLs to scrape concurrently in each batch
 
-async function scrapeWebMap(url, depth = 0) {
-    if (depth > maxDepth || visitedUrls.has(url)) {
-        console.log('url visited:', url);
-        return { name: url, value: "" }; // Return the URL with an empty value
+process.setMaxListeners(0); // 0 means unlimited
+
+// Scrape a batch of URLs concurrently
+async function scrapeBatch(urls) {
+    return await Promise.all(urls.map(url => scrapeWebMap(url)));
+}
+
+// Fetch visited URLs
+if (fs.existsSync('visitedUrls.json')) {
+    const urls = JSON.parse(fs.readFileSync('visitedUrls.json', 'utf-8'));
+    for (let url of urls) {
+        visitedUrls.add(url);
+    }
+}
+// fetch stored URLs
+async function fetchStoredUrls() {
+    try {
+        const response = await axios.get('http://localhost:8000/api/get-stored-urls');
+        return new Set(response.data);
+    } catch (error) {
+        console.error('Error fetching stored URLs:', error);
+        return new Set();
+    }
+}
+
+// Remove URL from storage which has been visited but not scraped because of change by website
+async function removeUrlFromStorage(url) {
+    try {
+        await axios.post('http://localhost:8000/api/remove-url', { url });
+        console.log(`Removed ${url} from storage`);
+    } catch (error) {
+        console.error(`Error removing ${url} from storage:`, error);
+    }
+}
+
+// Scrape a batch of URLs 
+// Improved scrapeWebMap function
+async function scrapeWebMap(url, targetURL, depth = 0) {
+    if (depth > maxDepth || visitedUrls.has(url) || storedUrls.has(url)) {
+        console.log('URL visited:', url);
+        return [];
     }
 
-    visitedUrls.add(url); // Mark the URL as visited
+    visitedUrls.add(url);
 
     const browser = await puppeteer.launch({
-        headless: "new",
+        headless: "new", // Change this to true for faster scraping without visual browser
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
@@ -27,7 +67,14 @@ async function scrapeWebMap(url, depth = 0) {
     });
     const page = await browser.newPage();
 
-    await page.goto(url, { waitUntil: 'networkidle2' });
+    //await page.goto(url, { waitUntil: 'networkidle2' });
+
+    try {
+        await page.goto(url, { waitUntil: 'networkidle2',timeout:60000 });//60 sec timeout
+        // rest of the scraping logic
+    } catch (error) {
+        console.error(`Failed to scrape ${url}:`, error.message);
+    }
 
     const links = await page.$$eval('a', anchors => {
         return anchors.map(anchor => anchor.href);
@@ -35,22 +82,40 @@ async function scrapeWebMap(url, depth = 0) {
 
     await browser.close();
 
-    const uniqueLinks = [...new Set(links)];
-    const children = [];
+   // Improved URL filtering
+   const uniqueLinks = [...new Set(links)].filter(link => 
+    !link.startsWith('#') && 
+    link.startsWith(targetURL) && 
+    !visitedUrls.has(link) && 
+    !storedUrls.has(link)
+);
 
-    for (let link of uniqueLinks) {
-        if (link.startsWith(url)) {
-            const childData = await scrapeWebMap(link, depth + 1);
-            children.push(childData);
-        }
-    }
+// Recursively scrape links
+const children = await Promise.all(uniqueLinks.map(link => scrapeWebMap(link, targetURL, depth + 1)));
 
-    return {
-        name: url,
-        value: "", // Empty value for now
-        children: children.length > 0 ? children : undefined
-    };
+
+return [{
+    name: url,
+    value: "",
+    children: children.length > 0 ? children : undefined
+}];
 }
+/*
+  // children of each link in the batch uniqueLinks
+  let children = [];
+  for (let i = 0; i < uniqueLinks.length; i += batchSize) {
+      const batch = uniqueLinks.slice(i, i + batchSize);
+      const batchResults = await scrapeBatch(batch);
+      children = [...children, ...batchResults];
+  }
+    return [{
+        name: url,
+        value: "",
+        children: children.length > 0 ? children : undefined
+    }];
+*/
+
+// write # to stdout to separate batches
 process.stdout.write('#');
 async function storeWebMapData(data) {
     try {
@@ -61,17 +126,24 @@ async function storeWebMapData(data) {
     }
 }
 
+
 async function main() {
-    const targetURL = process.argv[2] || 'https://maitridesigns.com'; // Get the URL from the command line argument or default to 'https://maitridesigns.com'
+    const targetURL = process.argv[2] || 'https://maitridesigns.com';
     console.log('Starting web scraping...');
-    const webMapData = await scrapeWebMap(targetURL);
-    await storeWebMapData(webMapData);
+    storedUrls = await fetchStoredUrls();
+    const webMapData = await scrapeWebMap(targetURL, targetURL);
+    await storeWebMapData(webMapData[0]);
+    console.log(webMapData);
+
+    const urlsToRemove = [...storedUrls].filter(url => !visitedUrls.has(url));
+    for (let url of urlsToRemove) {
+        await removeUrlFromStorage(url);
+    }
+
     console.log('Web scraping completed!');
 }
 
 main();
-
-
 /*
 const puppeteer = require('puppeteer');
 const axios = require('axios');

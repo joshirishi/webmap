@@ -21,31 +21,54 @@
 
     console.log("Raw Data:", rawData);  // Debugging step to inspect the structure of rawData
 
-    // function transformData(rawData) {
-    //     const transformed = {
-    //         name: "flare",
-    //         children: []
-    //     };
-
-    //     if (rawData && Array.isArray(rawData.children)) {
-            
-    //         transformed.children = rawData.children.map(node => {
-    //         return {
-    //             name: node.name,
-    //             children: node.children ? node.children.map(link => {
-    //             return {
-    //                 name: link.name,
-    //                 value: 1 // or some other value you want to assign
-    //             };
-    //             }) : []
-    //         };
-    //         });
-    //     }
-    //     console.log(transformed)    
-    //     return transformed;
-    // }
 
     const data = rawData[0];
+
+    function consolidateNodes(data) {
+        const nameMap = new Map();
+    
+        function traverse(node) {
+            if (!node) return;
+    
+            if (!nameMap.has(node.name)) {
+                nameMap.set(node.name, node);
+            } else {
+                const existingNode = nameMap.get(node.name);
+                if (node.children) {
+                    if (existingNode.children) {
+                        existingNode.children.push(...node.children);
+                    } else {
+                        existingNode.children = node.children;
+                    }
+                }
+            }
+    
+            if (node.children) {
+                node.children.forEach(child => traverse(child));
+            }
+        }
+    
+        traverse(data);
+    
+        // Now, remove duplicates from children arrays
+        nameMap.forEach(node => {
+            if (node.children) {
+                const childSet = new Set();
+                node.children = node.children.filter(child => {
+                    if (childSet.has(child.name)) {
+                        return false;
+                    } else {
+                        childSet.add(child.name);
+                        return true;
+                    }
+                });
+            }
+        });
+    
+        return data;
+    }
+    
+    const consolidatedData = consolidateNodes(data);
     
 
     // Specify the chart’s dimensions.
@@ -53,7 +76,7 @@
     const height = 1080;
 
     // Compute the graph and start the force simulation.
-    const root = d3.hierarchy(data); 
+    const root = d3.hierarchy(consolidatedData); 
     const links = root.links();
     const nodes = root.descendants();
 
@@ -87,11 +110,12 @@ const node = svg.append("g")
 .join("circle")
 .attr("fill", d => d.children ? null : "#28B34B")
 .attr("stroke", d => d.children ? null : "#fff")
-.attr("r", d => d.children ? 7 : 5)
+.attr("r", d => d.children ? 20 : 10)
 .call(drag(simulation));
 
 //helper function
 function extractNodeNameFromUrl(url) {
+    if (!url) return '';  // Guard clause
     // Remove the "http://" or "https://" prefix
     const cleanedUrl = url.replace(/^https?:\/\//, '');
     // Split the URL by '/' and filter out any empty segments
@@ -102,20 +126,20 @@ function extractNodeNameFromUrl(url) {
 
 // Append node names (text) beside each node.
 const nodeText = svg.append("g")
-    .attr("font-family", "Arial")
-    .attr("font-size", 10)
-    .attr("fill", "black")  // Set a distinct color for the text
-    .selectAll("text")
-    .data(nodes)
-    .join("text")
-    .attr("dx", 12) // Offset the text by 12 units to the right of the node
-    .attr("dy", ".35em") // Vertically center the text with the node
-    .text(d => extractNodeNameFromUrl(d.data.name));
+        .attr("font-family", "Arial")
+        .attr("font-size", 10)
+        .attr("fill", "black")
+        .selectAll("text")
+        .data(nodes)
+        .join("text")
+        .attr("dx", 12)
+        .attr("dy", ".35em")
+        .text(d => d.data && d.data.name ? extractNodeNameFromUrl(d.data.name) : '');  // Check if d.data and d.data.name exist
+    
+        node.append("title")
+        .text(d => d.data.name);  // Corrected this line
 
-
-    //Adds tooltip to circles
-    node.append("title")
-        .text(d => d.data.name)
+   
 
     simulation.on("tick", () => {
         link
