@@ -104,19 +104,14 @@ async function scrapeWebMap(url, targetURL, depth = 0) {
 
     await browser.close();
 
-<<<<<<< Updated upstream
    // Improved URL filtering
-   const uniqueLinks = [...new Set(links)].filter(link => 
-    !link.startsWith('#') && 
-    link.startsWith(targetURL) && 
+   const baseDomain = new URL(targetURL).hostname;
+const uniqueLinks = [...new Set(links)].filter(link => 
+    isValidLink(link, baseDomain) && 
     !visitedUrls.has(link) && 
     !storedUrls.has(link)
 );
-=======
-    const uniqueLinks = [...new Set(links)].filter(link => isValidLink(link, new URL(url).hostname));
 
-    const children = [];
->>>>>>> Stashed changes
 
 // Recursively scrape links
 const children = await Promise.all(uniqueLinks.map(link => scrapeWebMap(link, targetURL, depth + 1)));
