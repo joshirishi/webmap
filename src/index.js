@@ -52,6 +52,28 @@ async function scrapeWebMap(url, targetURL, depth = 0) {
 
     visitedUrls.add(url);
 
+   
+    function isValidLink(link, baseDomain) {
+        // Check for anchor links
+        if (link.startsWith('#')) return false;
+        // Check for JavaScript links
+        if (link.startsWith('javascript:')) return false;
+        // Check for mailto links
+        if (link.startsWith('mailto:')) return false;
+        // Check for tel links
+        if (link.startsWith('tel:')) return false;
+        // Check for common file extensions
+        const fileExtensions = ['.pdf', '.docx', '.zip', '.jpg', '.png', '.gif'];
+        for (let ext of fileExtensions) {
+            if (link.endsWith(ext)) return false;
+        }
+        // Check for external links (optional)
+        const urlObj = new URL(link);
+        if (urlObj.hostname !== baseDomain) return false;
+    
+        return true;
+    }
+
     const browser = await puppeteer.launch({
         headless: "new", // Change this to true for faster scraping without visual browser
         args: [
@@ -82,6 +104,7 @@ async function scrapeWebMap(url, targetURL, depth = 0) {
 
     await browser.close();
 
+<<<<<<< Updated upstream
    // Improved URL filtering
    const uniqueLinks = [...new Set(links)].filter(link => 
     !link.startsWith('#') && 
@@ -89,6 +112,11 @@ async function scrapeWebMap(url, targetURL, depth = 0) {
     !visitedUrls.has(link) && 
     !storedUrls.has(link)
 );
+=======
+    const uniqueLinks = [...new Set(links)].filter(link => isValidLink(link, new URL(url).hostname));
+
+    const children = [];
+>>>>>>> Stashed changes
 
 // Recursively scrape links
 const children = await Promise.all(uniqueLinks.map(link => scrapeWebMap(link, targetURL, depth + 1)));
