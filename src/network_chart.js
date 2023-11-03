@@ -21,33 +21,8 @@
 
     console.log("Raw Data:", rawData);  // Debugging step to inspect the structure of rawData
 
-    // function transformData(rawData) {
-    //     const transformed = {
-    //         name: "flare",
-    //         children: []
-    //     };
-
-    //     if (rawData && Array.isArray(rawData.children)) {
-            
-    //         transformed.children = rawData.children.map(node => {
-    //         return {
-    //             name: node.name,
-    //             children: node.children ? node.children.map(link => {
-    //             return {
-    //                 name: link.name,
-    //                 value: 1 // or some other value you want to assign
-    //             };
-    //             }) : []
-    //         };
-    //         });
-    //     }
-    //     console.log(transformed)    
-    //     return transformed;
-    // }
-
     const data = rawData[0];
     
-
     // Specify the chart’s dimensions.
     const width = 1920;
     const height = 1080;
@@ -77,43 +52,97 @@
         .data(links)
         .join("line");
 
-        const addTooltip = (hoverTooltip, d, x, y) => {
-            div
-              .transition()
-              .duration(200)
-              .style("opacity", 0.9);
-            div
-              .html(hoverTooltip(d))
-              .style("left", `${x}px`)
-              .style("top", `${y - 28}px`);
-          };
-          
-          const removeTooltip = () => {
-            div
-              .transition()
-              .duration(200)
-              .style("opacity", 0);
-          };
+    // Define the color function
+    const color = (d) => {
+        // Define your color logic here
+        return "#9D00A0";
+    };
+
+    // Define the drag function
+    function drag(simulation) {
+        function dragstarted(event, d) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+        
+        function dragged(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+        }
+        
+        function dragended(event, d) {
+            if (!event.active) simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+        }
+        return d3.drag()
+            .on("start", dragstarted)
+            .on("drag", dragged)
+            .on("end", dragended);
+    }
+        // Add the tooltip element to the graph
+        let div = d3.select("#graph-tooltip");
+        if (!div.node()) {
+        const tooltipDiv = document.createElement("div");
+        tooltipDiv.classList.add("tooltip"); // Adjust the class name as per your CSS
+        tooltipDiv.style.opacity = "0";
+        tooltipDiv.id = "graph-tooltip";
+        document.body.appendChild(tooltipDiv);
+        div = d3.select("#graph-tooltip");
+        }
+
+    // Define the tooltip functions
+    const addTooltip = (hoverTooltip, d, x, y) => {
+        div
+            .transition()
+            .duration(200)
+            .style("opacity", 0.9);
+        div
+            .html(hoverTooltip(d))
+            .style("left", `${x}px`)
+            .style("top", `${y - 28}px`);
+    };
+    
+    const removeTooltip = () => {
+        div
+           // .transition()
+           // .duration(200)
+            .style("opacity", 0);
+    };
+
+    // Define the nodeHoverTooltip function
+const nodeHoverTooltip = (d) => {
+    // Define your tooltip content logic here
+    // Dummy KPIs and numbers
+    const kpi1 = { name: "KPI 1", value: 123 };
+    const kpi2 = { name: "KPI 2", value: 456 };
+
+    return `
+        <strong>URL:</strong> ${d.data.name}<br>
+        <strong>${kpi1.name}:</strong> ${kpi1.value}<br>
+        <strong>${kpi2.name}:</strong> ${kpi2.value}
+    `;
+};
 
     // Append nodes (circles).
-            const node = svg.append("g")
-            .attr("fill", "#ffffff")
-            .attr("stroke", "#28B34B")
-            .attr("stroke-width", 1.5)
-            .selectAll("circle")
-            .data(nodes)
-            .join("circle")
-            .attr("fill", d => d.children ? null : "#28B34B")
-            .attr("stroke", d => d.children ? null : "#fff")
-            .attr("r", d => d.children ? 7 : 5)
-            .style("cursor", "pointer") // Change cursor style on hover
-            //.call(drag(simulation))
-            .on("dblclick", d => { // Add double-click event listener
-                window.open('https://example.com', '_blank'); // Open "example.com" in a new tab
-            });
+    const node = svg
+        .append("g")
+        .attr("stroke", "#fff")
+        .attr("stroke-width", 2)
+        .selectAll("circle")
+        .data(nodes)
+        .join("circle")
+        .on('click', (event, d) => {
+            console.log("Node clicked", d); // Check if this logs when you click a node
+            event.preventDefault();
+            addTooltip(nodeHoverTooltip, d, event.pageX, event.pageY);
+        })
+        .attr("r", 12)
+        .attr("fill", color)
+        .call(drag(simulation));
 
-
-//helper function
+        //helper function
 function extractNodeNameFromUrl(url) {
     // Remove the "http://" or "https://" prefix
     const cleanedUrl = url.replace(/^https?:\/\//, '');
@@ -123,26 +152,21 @@ function extractNodeNameFromUrl(url) {
     return segments[segments.length - 1];
 }
 
-// Append node names (text) beside each node.
-const nodeText = svg.append("g")
-    .attr("font-family", "Arial")
-    .attr("font-size", 10)
-    .attr("fill", "black")  // Set a distinct color for the text
-    .selectAll("text")
-    .data(nodes)
-    .join("text")
-    .attr("dx", 12) // Offset the text by 12 units to the right of the node
-    .attr("dy", ".35em") // Vertically center the text with the node
-    .text(d => extractNodeNameFromUrl(d.data.name))
-    .style("cursor", "pointer") // Change cursor style on hover
-    .on("dblclick", d => { // Add double-click event listener
-        window.open('https://example.com', '_blank'); // Open "example.com" in a new tab
-    });
-
-
-    //Adds tooltip to circles
-    node.append("title")
+    // Append node names (text) beside each node.
+    const nodeText = svg.append("g")
+        .attr("font-family", "Arial")
+        .attr("font-size", 10)
+        .attr("fill", "black")
+        .selectAll("text")
+        .data(nodes)
+        .join("text")
+        .attr("dx", 12)
+        .attr("dy", ".35em")
         .text(d => d.data.name)
+        .style("cursor", "pointer")
+        .on("dblclick", (event, d) => {
+            window.open(d.data.url, '_blank');
+        });
 
     simulation.on("tick", () => {
         link
@@ -160,31 +184,12 @@ const nodeText = svg.append("g")
             .attr("y", d => d.y);
     });
 
-    function drag(simulation) {
-        function dragstarted(event, d) {
-            if (!event.active) simulation.alphaTarget(0.3).restart();
-            d.fx = d.x;
-            d.fy = d.y;
-        }
-        
-        function dragged(event, d) {
-            d.fx = event.x;
-            d.fy = event.y;
-        }
-        
-        function dragended(event, d) {
-            if (!event.active) simulation.alphaTarget(0);
-            // Comment out the following lines to make the node stay where it is after dragging
-            // d.fx = null;
-            // d.fy = null;
-        }
-        return d3.drag()
-            .on("start", dragstarted)
-            .on("drag", dragged)
-            .on("end", dragended);
-    }
-
+    // Hide the tooltip when clicking anywhere else on the body
+    d3.select('body').on('click', () => {
+        removeTooltip();
+    });
 })();
+
 
 /* //working code but flat hierarchy
 (async function() {
