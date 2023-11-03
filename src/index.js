@@ -37,7 +37,7 @@ async function scrapeWebMap(url, depth = 0) {
         });
 
         const filteredLinks = links.filter(link => {
-            return !link.startsWith('#') && !link.startsWith('javascript:') && !link.startsWith('mailto:');
+            return !link.includes('#') && !link.startsWith('javascript:') && !link.startsWith('mailto:');
         });
 
         const uniqueLinks = [...new Set(filteredLinks)];
@@ -87,7 +87,7 @@ async function storeWebMapData(data) {
 }
 
 async function main() {
-    const targetURL = process.argv[2] || 'https://cityaslabindia.org'; // Get the URL from the command line argument or default to 'https://cityaslabindia.org'
+    const targetURL = process.argv[2] || 'https://maitridesigns.com'; // Get the URL from the command line argument or default to 'https://cityaslabindia.org'
     console.log('Starting web scraping...');
     const webMapData = await scrapeWebMap(targetURL);
     await storeWebMapData(webMapData);
