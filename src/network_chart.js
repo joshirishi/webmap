@@ -88,7 +88,12 @@ const node = svg.append("g")
 .attr("fill", d => d.children ? null : "#28B34B")
 .attr("stroke", d => d.children ? null : "#fff")
 .attr("r", d => d.children ? 7 : 5)
-.call(drag(simulation));
+.style("cursor", "pointer") // Change cursor style on hover
+//.call(drag(simulation))
+.on("dblclick", d => { // Add double-click event listener
+    window.open('https://example.com', '_blank'); // Open "example.com" in a new tab
+});
+
 
 //helper function
 function extractNodeNameFromUrl(url) {
@@ -110,7 +115,11 @@ const nodeText = svg.append("g")
     .join("text")
     .attr("dx", 12) // Offset the text by 12 units to the right of the node
     .attr("dy", ".35em") // Vertically center the text with the node
-    .text(d => extractNodeNameFromUrl(d.data.name));
+    .text(d => extractNodeNameFromUrl(d.data.name))
+    .style("cursor", "pointer") // Change cursor style on hover
+    .on("dblclick", d => { // Add double-click event listener
+        window.open('https://example.com', '_blank'); // Open "example.com" in a new tab
+    });
 
 
     //Adds tooltip to circles
