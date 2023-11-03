@@ -32,6 +32,12 @@ async function scrapeWebMap(url, depth = 0) {
     try {
         await page.goto(url, { waitUntil: 'networkidle2' });
 
+        // Capture screenshot
+        const screenshotBuffer = await page.screenshot({ fullPage: true });
+
+        // Get <title> tag content
+        const title = await page.evaluate(() => document.title);
+
         const links = await page.$$eval('a', anchors => {
             return anchors.map(anchor => anchor.href);
         });
@@ -65,6 +71,9 @@ async function scrapeWebMap(url, depth = 0) {
         return {
             name: url,
             value: "",
+            error: false,
+            screenshot: screenshotBuffer,
+            Title: title,
             children: children.length > 0 ? children : undefined
         };
     } catch (error) {
@@ -75,7 +84,6 @@ async function scrapeWebMap(url, depth = 0) {
     }
 }
 
-process.stdout.write('#');
 async function storeWebMapData(data) {
     try {
         const response = await axios.post('http://localhost:8000/api/store-webmap', data);
@@ -87,8 +95,8 @@ async function storeWebMapData(data) {
 }
 
 async function main() {
-    const targetURL = process.argv[2] || 'https://journeys-unlimited.com/'; // Get the URL from the command line argument or default to 'https://cityaslabindia.org'
     console.log('Starting web scraping...');
+    const targetURL = process.argv[2] || 'https://journeys-unlimited.com/'; // Get the URL from the command line argument or default to 'https://cityaslabindia.org'
     const webMapData = await scrapeWebMap(targetURL);
     await storeWebMapData(webMapData);
     console.log('Web scraping completed!');
@@ -97,6 +105,7 @@ async function main() {
 }
 
 main();
+
 
 /*
 const puppeteer = require('puppeteer');
