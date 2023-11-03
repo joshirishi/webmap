@@ -1,6 +1,10 @@
 
 (async function() {
+<<<<<<< Updated upstream
     const targetUrl = 'https://maitridesigns.com/';
+=======
+    const targetUrl = 'https://cityaslabindia.org';
+>>>>>>> Stashed changes
 
     async function fetchData() {
         try {

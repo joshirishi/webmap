@@ -1,6 +1,7 @@
 
 const puppeteer = require('puppeteer');
 const axios = require('axios');
+<<<<<<< Updated upstream
 const fs = require('fs');
 
 const maxDepth = 5; // Maximum number of links to scrape
@@ -97,13 +98,49 @@ async function scrapeWebMap(url, targetURL, depth = 0) {
     } catch (error) {
         console.error(`Failed to scrape ${url}:`, error.message);
     }
+=======
+const maxDepth = 3;
+const visitedUrls = new Set();
+const concurrentLimit = 5; // Limit the number of concurrent pages
 
-    const links = await page.$$eval('a', anchors => {
-        return anchors.map(anchor => anchor.href);
-    });
+const browserPromise = puppeteer.launch({
+    headless: "new",
+    args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-gpu',
+        '--disable-dev-shm-usage',
+        '--no-first-run',
+        '--no-zygote',
+        '--single-process',
+        '--disable-extensions'
+    ]
+});
 
-    await browser.close();
+async function scrapeWebMap(url, depth = 0) {
+    if (depth > maxDepth || visitedUrls.has(url)) {
+        console.log('url visited:', url);
+        return { name: url, value: "" };
+    }
 
+    visitedUrls.add(url);
+
+    const browser = await browserPromise;
+    const page = await browser.newPage();
+
+    try {
+        await page.goto(url, { waitUntil: 'networkidle2' });
+>>>>>>> Stashed changes
+
+        const links = await page.$$eval('a', anchors => {
+            return anchors.map(anchor => anchor.href);
+        });
+
+        const filteredLinks = links.filter(link => {
+            return !link.startsWith('#') && !link.startsWith('javascript:') && !link.startsWith('mailto:');
+        });
+
+<<<<<<< Updated upstream
    // Improved URL filtering
    const baseDomain = new URL(targetURL).hostname;
 const uniqueLinks = [...new Set(links)].filter(link => 
@@ -122,6 +159,38 @@ return [{
     value: "",
     children: children.length > 0 ? children : undefined
 }];
+=======
+        const uniqueLinks = [...new Set(filteredLinks)];
+        const children = [];
+
+        // Process a limited number of links concurrently
+        const chunks = [];
+        for (let i = 0; i < uniqueLinks.length; i += concurrentLimit) {
+            chunks.push(uniqueLinks.slice(i, i + concurrentLimit));
+        }
+
+        for (let chunk of chunks) {
+            const promises = chunk.map(link => {
+                if (link.startsWith(url)) {
+                    return scrapeWebMap(link, depth + 1);
+                }
+            }).filter(Boolean);
+
+            children.push(...(await Promise.all(promises)));
+        }
+
+        return {
+            name: url,
+            value: "",
+            children: children.length > 0 ? children : undefined
+        };
+    } catch (error) {
+        console.error(`Error scraping ${url}:`, error);
+        return { name: url, value: "", error: true };
+    } finally {
+        await page.close(); // Ensure the page is closed in the finally block
+    }
+>>>>>>> Stashed changes
 }
 /*
   // children of each link in the batch uniqueLinks
@@ -141,9 +210,11 @@ return [{
 // write # to stdout to separate batches
 process.stdout.write('#');
 async function storeWebMapData(data) {
+   
     try {
         const response = await axios.post('http://localhost:8000/api/store-webmap', data);
-        console.log('Data stored:', response.data);
+        console.log(`URL stored: ${data.name}`); // Log the URL being stored
+        console.log('Data stored:', response.data); //log the data getting stored
     } catch (error) {
         console.error('Error storing web map data:', error);
     }
@@ -151,7 +222,11 @@ async function storeWebMapData(data) {
 
 
 async function main() {
+<<<<<<< Updated upstream
     const targetURL = process.argv[2] || 'https://maitridesigns.com/';
+=======
+    const targetURL = process.argv[2] || 'https://cityaslabindia.org'; // Get the URL from the command line argument or default to 'https://maitridesigns.com'
+>>>>>>> Stashed changes
     console.log('Starting web scraping...');
     storedUrls = await fetchStoredUrls();
     const webMapData = await scrapeWebMap(targetURL, targetURL);
@@ -163,6 +238,9 @@ async function main() {
         await removeUrlFromStorage(url);
     }
 
+    console.log('Web scraping completed!');
+    const browser = await browserPromise;
+    await browser.close();
     console.log('Web scraping completed!');
 }
 
