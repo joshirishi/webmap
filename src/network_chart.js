@@ -77,22 +77,40 @@
         .data(links)
         .join("line");
 
+        const addTooltip = (hoverTooltip, d, x, y) => {
+            div
+              .transition()
+              .duration(200)
+              .style("opacity", 0.9);
+            div
+              .html(hoverTooltip(d))
+              .style("left", `${x}px`)
+              .style("top", `${y - 28}px`);
+          };
+          
+          const removeTooltip = () => {
+            div
+              .transition()
+              .duration(200)
+              .style("opacity", 0);
+          };
+
     // Append nodes (circles).
-const node = svg.append("g")
-.attr("fill", "#ffffff")
-.attr("stroke", "#28B34B")
-.attr("stroke-width", 1.5)
-.selectAll("circle")
-.data(nodes)
-.join("circle")
-.attr("fill", d => d.children ? null : "#28B34B")
-.attr("stroke", d => d.children ? null : "#fff")
-.attr("r", d => d.children ? 7 : 5)
-.style("cursor", "pointer") // Change cursor style on hover
-//.call(drag(simulation))
-.on("dblclick", d => { // Add double-click event listener
-    window.open('https://example.com', '_blank'); // Open "example.com" in a new tab
-});
+            const node = svg.append("g")
+            .attr("fill", "#ffffff")
+            .attr("stroke", "#28B34B")
+            .attr("stroke-width", 1.5)
+            .selectAll("circle")
+            .data(nodes)
+            .join("circle")
+            .attr("fill", d => d.children ? null : "#28B34B")
+            .attr("stroke", d => d.children ? null : "#fff")
+            .attr("r", d => d.children ? 7 : 5)
+            .style("cursor", "pointer") // Change cursor style on hover
+            //.call(drag(simulation))
+            .on("dblclick", d => { // Add double-click event listener
+                window.open('https://example.com', '_blank'); // Open "example.com" in a new tab
+            });
 
 
 //helper function

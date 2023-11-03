@@ -87,7 +87,7 @@ async function storeWebMapData(data) {
 }
 
 async function main() {
-    const targetURL = process.argv[2] || 'https://maitridesigns.com'; // Get the URL from the command line argument or default to 'https://cityaslabindia.org'
+    const targetURL = process.argv[2] || 'https://journeys-unlimited.com/'; // Get the URL from the command line argument or default to 'https://cityaslabindia.org'
     console.log('Starting web scraping...');
     const webMapData = await scrapeWebMap(targetURL);
     await storeWebMapData(webMapData);
