@@ -1,76 +1,102 @@
 const puppeteer = require('puppeteer');
 const axios = require('axios');
+const maxDepth = 3;
+const visitedUrls = new Set();
+const concurrentLimit = 5; // Limit the number of concurrent pages
 
-const maxDepth = 2; // Limit the scraping depth to 3
-const visitedUrls = new Set(); // Set to track visited URLs
+const browserPromise = puppeteer.launch({
+    headless: "new",
+    args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-gpu',
+        '--disable-dev-shm-usage',
+        '--no-first-run',
+        '--no-zygote',
+        '--single-process',
+        '--disable-extensions'
+    ]
+});
 
 async function scrapeWebMap(url, depth = 0) {
     if (depth > maxDepth || visitedUrls.has(url)) {
         console.log('url visited:', url);
-        return { name: url, value: "" }; // Return the URL with an empty value
+        return { name: url, value: "" };
     }
 
-    visitedUrls.add(url); // Mark the URL as visited
+    visitedUrls.add(url);
 
-    const browser = await puppeteer.launch({
-        headless: "new",
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-gpu',
-            '--disable-dev-shm-usage',
-            '--no-first-run',
-            '--no-zygote',
-            '--single-process',
-            '--disable-extensions'
-        ]
-    });
+    const browser = await browserPromise;
     const page = await browser.newPage();
 
-    await page.goto(url, { waitUntil: 'networkidle2' });
+    try {
+        await page.goto(url, { waitUntil: 'networkidle2' });
 
-    const links = await page.$$eval('a', anchors => {
-        return anchors.map(anchor => anchor.href);
-    });
+        const links = await page.$$eval('a', anchors => {
+            return anchors.map(anchor => anchor.href);
+        });
 
-    await browser.close();
+        const filteredLinks = links.filter(link => {
+            return !link.startsWith('#') && !link.startsWith('javascript:') && !link.startsWith('mailto:');
+        });
 
-    const uniqueLinks = [...new Set(links)];
-    const children = [];
+        const uniqueLinks = [...new Set(filteredLinks)];
+        const children = [];
 
-    for (let link of uniqueLinks) {
-        if (link.startsWith(url)) {
-            const childData = await scrapeWebMap(link, depth + 1);
-            children.push(childData);
+        // Process a limited number of links concurrently
+        const chunks = [];
+        for (let i = 0; i < uniqueLinks.length; i += concurrentLimit) {
+            chunks.push(uniqueLinks.slice(i, i + concurrentLimit));
         }
-    }
 
-    return {
-        name: url,
-        value: "", // Empty value for now
-        children: children.length > 0 ? children : undefined
-    };
+        for (let chunk of chunks) {
+            const promises = chunk.map(link => {
+                if (link.startsWith(url)) {
+                    return scrapeWebMap(link, depth + 1).catch(error => {
+                        console.error(`Error scraping ${link}:`, error);
+                        return { name: link, value: "", error: true };
+                    });
+                }
+            }).filter(Boolean);
+
+            children.push(...(await Promise.all(promises)));
+        }
+
+        return {
+            name: url,
+            value: "",
+            children: children.length > 0 ? children : undefined
+        };
+    } catch (error) {
+        console.error(`Error scraping ${url}:`, error);
+        return { name: url, value: "", error: true };
+    } finally {
+        await page.close(); // Ensure the page is closed in the finally block
+    }
 }
+
 process.stdout.write('#');
 async function storeWebMapData(data) {
     try {
         const response = await axios.post('http://localhost:8000/api/store-webmap', data);
-        console.log('Data stored:', response.data);
+        console.log(`URL stored: ${data.name}`); // Log the URL being stored
+        console.log('Data stored:', response.data); //log the data getting stored
     } catch (error) {
         console.error('Error storing web map data:', error);
     }
 }
 
 async function main() {
-    const targetURL = process.argv[2] || 'https://maitridesigns.com'; // Get the URL from the command line argument or default to 'https://maitridesigns.com'
+    const targetURL = process.argv[2] || 'https://cityaslabindia.org'; // Get the URL from the command line argument or default to 'https://cityaslabindia.org'
     console.log('Starting web scraping...');
     const webMapData = await scrapeWebMap(targetURL);
     await storeWebMapData(webMapData);
     console.log('Web scraping completed!');
+    const browser = await browserPromise;
+    await browser.close();
 }
 
 main();
-
 
 /*
 const puppeteer = require('puppeteer');
