@@ -5,8 +5,27 @@ const axios = require('axios');
 const maxDepth = 30;
 const targetUrl = 'https://journeys-unlimited.com'; // Replace with your target URL
 const visitedUrls = new Set();
-const concurrentLimit = 5;
+const concurrentLimit = 0;
 let currentDepth = 0;
+
+// Function to extract the domain name from a URL
+function getDomainFromUrl(url) {
+    const matches = url.match(/^https?:\/\/([^/?#]+)(?:[/?#]|$)/i);
+    return matches && matches[1].replace('www.', '');
+  }
+  
+  // Function to generate the websiteId
+  function generateWebsiteId(url, username) {
+    const domain = getDomainFromUrl(url);
+    return `${domain}-${username}`;
+  }
+  
+  // Example usage
+  const url = targetUrl; // This would be the user input in the future
+  const username = "username"; // Replace 'username' with the actual username
+  const websiteId = generateWebsiteId(url, username);
+  
+  console.log(websiteId); // Outputs: maitridesigns-username
 
 // Initialize Puppeteer
 async function initBrowser() {
@@ -75,7 +94,7 @@ async function scrapeWebMap(currentUrl, depth) {
 
         await browser.close();
         console.log(`Completed scrape of: ${currentUrl}`);
-        return { name: pageData.title || currentUrl, url: currentUrl, children };
+        return { websiteId, name: pageData.title || currentUrl, url: currentUrl, children };
     } catch (error) {
         console.error(`Error scraping ${currentUrl}:`, error);
         return null;
@@ -114,6 +133,7 @@ async function storeWebMapData(data) {
     await browser.close();
     console.log('Web scraping process completed successfully.');
 })();
+
 
 /*
 const puppeteer = require('puppeteer');
