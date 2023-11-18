@@ -142,7 +142,7 @@
 function formatText(d) {
 const maxLength = 20; // Maximum number of characters to display
 let formattedText = d.data.name.length > maxLength ? d.data.name.substring(0, maxLength) + "..." : d.data.name;
-let rectWidth = formattedText.length * 8; // Approximate width based on character count
+let rectWidth = formattedText.length * 5.2; // Approximate width based on character count
 return { formattedText, rectWidth };
 }
 
