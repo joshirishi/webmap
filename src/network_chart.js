@@ -1,7 +1,7 @@
 
 
 (async function() {
-    const websiteId = 'journeys-unlimited.com-username'; // Replace with your website identifier
+    const websiteId = 'maitridesigns.com-username'; // Replace with your website identifier
 
     async function fetchData() {
         try {
@@ -23,21 +23,21 @@
     const data = rawData[0];
     
     // Specify the chart’s dimensions.
-    const width = 1920;
-    const height = 1080;
+    const width = 1160;
+    const height = 700;
 
     // Compute the graph and start the force simulation.
     const root = d3.hierarchy(data); 
     const links = root.links();
     const nodes = root.descendants();
+    
 
    
     const simulation = d3.forceSimulation(nodes)
     .force("link", d3.forceLink(links).id(d => d.id).distance(100))
     .force("charge", d3.forceManyBody().strength(-50)) // Reduced strength for less repulsion
     .force("center", d3.forceCenter(width / 2, height / 2)) // Centering force
-
-        .force("collide", d3.forceCollide(d => Math.max(d.data.name.length * 1, 20))); // Collision based on rectangle size
+    .force("collide", d3.forceCollide(d => Math.max(d.data.name.length * 1, 20))); // Collision based on rectangle size
 
     // Create the container SVG and group for holding the graph
         const svg = d3.select("body").append("svg")
@@ -77,29 +77,30 @@
         });
 
 
-    // Define the color function
+    
+    // Modify the color function to check the node's depth
     const color = (d) => {
-        return "#96A621";
+        return d.depth === 1 ? "#FF5733" : "#96A621"; // Different color for root node
     };
 
     // Define the drag behavior
-function drag(simulation) {
-    function dragstarted(event, d) {
-        if (!event.active) simulation.alphaTarget(0.3).restart(); // Reduced alpha target for less bounciness
-        d.fx = d.x; // Fixing node position on drag start
-        d.fy = d.y;
-    }
+        function drag(simulation) {
+            function dragstarted(event, d) {
+                if (!event.active) simulation.alphaTarget(0.3).restart(); // Reduced alpha target for less bounciness
+                d.fx = d.x; // Fixing node position on drag start
+                d.fy = d.y;
+            }
 
-    function dragged(event, d) {
-        d.fx = event.x; // Fixing node position while dragging
-        d.fy = event.y;
-    }
+            function dragged(event, d) {
+                d.fx = event.x; // Fixing node position while dragging
+                d.fy = event.y;
+            }
 
-    function dragended(event, d) {
-        if (!event.active) simulation.alphaTarget(0); // Setting alpha target back to zero
-        d.fx = d.x; // Node remains at the position where it was dragged
-        d.fy = d.y;
-    }
+            function dragended(event, d) {
+                if (!event.active) simulation.alphaTarget(0); // Setting alpha target back to zero
+                d.fx = d.x; // Node remains at the position where it was dragged
+                d.fy = d.y;
+            }
 
     return d3.drag()
         .on("start", dragstarted)
@@ -131,7 +132,7 @@ function drag(simulation) {
     // Define the nodeHoverTooltip function
     const nodeHoverTooltip = (d) => {
         return `
-            <strong>URL:</strong> ${d.data.name}<br>
+            <strong>URL:</strong> ${d.data.url}<br>
             <strong>Additional Info:</strong> Some info here
         `;
     };
@@ -154,7 +155,7 @@ const group = d3.select(this);
 group.append("rect")
     .attr("width", rectWidth)
     .attr("height", 20)
-    .attr("fill", color)
+    .attr("fill", color(d))
     .attr("x", -rectWidth / 2)
     .attr("y", -10);
 
