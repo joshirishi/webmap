@@ -66,7 +66,12 @@
         .data(nodes)
         .join("g")
         .call(drag(simulation))
-        .on('click', (event, d) => {
+        .on('dblclick', (event, d) => {
+            window.open('about:blank', '_blank'); // Opens a new blank page
+            // If you want to open a specific URL, replace 'about:blank' with the URL
+        })
+    
+        .on('mouseover', (event, d) => {
             addTooltip(nodeHoverTooltip, d, event.pageX, event.pageY);
         });
 /*
