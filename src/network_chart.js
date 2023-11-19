@@ -1,5 +1,14 @@
 (async function() {
     const websiteId = 'cityaslabindia.org-username'; // Replace with your website identifier
+    // Base color in HSL format
+    const baseHue = 135; // Example: blue hue
+    const baseSaturation = 63; // Percentage
+
+    function shadeColorByDepth(depth) {
+        // Adjust lightness based on depth (deeper nodes are darker)
+        const lightness = 43 - depth ;
+        return `hsl(${baseHue}, ${baseSaturation}%, ${lightness}%)`;
+    }
 
     // Variables for customization
     let a = "#96A621"; // Normal node color
@@ -34,6 +43,10 @@
     const root = d3.hierarchy(data); 
     const links = root.links();
     const nodes = root.descendants();
+     // Modify the color function to use the shadeColorByDepth function
+     const color = (d) => {
+        return shadeColorByDepth(d.depth);
+    };
 
     const simulation = d3.forceSimulation(nodes)
         .force("link", d3.forceLink(links).id(d => d.id).distance(100))
@@ -73,10 +86,7 @@
             addTooltip(nodeHoverTooltip, d, event.pageX, event.pageY);
         });
 
-    const color = (d) => {
-        return d.depth === 1 ? b : a;
-    };
-
+ 
     function drag(simulation) {
         function dragstarted(event, d) {
             if (!event.active) simulation.alphaTarget(0.3).restart();
