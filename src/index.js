@@ -3,7 +3,7 @@ const axios = require('axios');
 
 // Configuration
 const maxDepth = 30;
-const targetUrl = 'https://maitridesigns.com'; // Replace with your target URL
+const targetUrl = 'https://www.google.com'; // Replace with your target URL
 const visitedUrls = new Set();
 const concurrentLimit = 0;
 let currentDepth = 0;
