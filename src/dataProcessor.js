@@ -22,7 +22,24 @@ function extractLinksFromHierarchy(node, links = []) {
 
 function processUserMovements(webMapData, navigationPaths) {
     let links = extractLinksFromHierarchy(webMapData);
-    // ... Additional logic for processing user movements
+    let additionalLinks = [];
+
+    // Implement logic to process user movements
+    // Example: Create links based on navigation paths
+    if (navigationPaths && Array.isArray(navigationPaths)) {
+        navigationPaths.forEach(path => {
+            for (let i = 0; i < path.length - 1; i++) {
+                let source = path[i];
+                let target = path[i + 1];
+                // Add logic to avoid duplicates and ensure valid links
+                if (!links.some(link => link.source === source && link.target === target)) {
+                    additionalLinks.push({ source: source, target: target });
+                }
+            }
+        });
+    }
+
+    return additionalLinks;
 }
 
 export { fetchData, processUserMovements };

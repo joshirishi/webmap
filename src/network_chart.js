@@ -6,12 +6,17 @@ import { fetchData, processUserMovements } from './dataProcessor.js'; // Uncomme
 
     // Fetch and process the data
     const rawData = await fetchData(websiteId);
+    console.log("Raw data from API:", rawData);
+
     if (!rawData || !rawData.webMap || rawData.webMap.length === 0) {
         console.error('Invalid or missing webMap data in rawData');
         return;
     }
     const webMap = rawData.webMap[0];
+    console.log("Processed webMap data:", webMap);
+
     const allLinks = processUserMovements(webMap, rawData.navigationPaths);
+    console.log("Processed allLinks (from user movements):", allLinks);
 
     // Visualization dimensions and setup
     const width = 1160;
