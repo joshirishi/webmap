@@ -1,30 +1,23 @@
 // Ensure that dataProcessor.js is correctly referenced in your HTML and loaded before this script
-import { fetchData, processUserMovements } from './dataProcessor.js'; // Uncomment this line if using modules
+import { fetchData, processUserMovements } from './dataProcessor.js'; 
 
 (async function() {
-    const websiteId = 'example.com-username'; // Replace with your website identifier
+    const websiteId = 'example.com-username';
 
-    // Fetch and process the data
     const rawData = await fetchData(websiteId);
-    console.log("Raw data from API:", rawData);
-
     if (!rawData || !rawData.webMap || rawData.webMap.length === 0) {
         console.error('Invalid or missing webMap data in rawData');
         return;
     }
+
     const webMap = rawData.webMap[0];
-    console.log("Processed webMap data:", webMap);
-
-    // Process user movements to get additional links and nodes
     const { additionalLinks, additionalNodes } = processUserMovements(webMap, rawData.navigationPaths);
-    console.log("Processed additionalLinks and additionalNodes:", additionalLinks, additionalNodes);
 
-    // Hierarchical data for D3
-    const root = d3.hierarchy(webMap); // Create hierarchy from webMap
-    const hierarchicalNodes = root.descendants(); // Nodes from hierarchy
-    const hierarchicalLinks = root.links(); // Links from hierarchy
+    const root = d3.hierarchy(webMap);
+    const hierarchicalNodes = root.descendants();
+    const hierarchicalLinks = root.links();
 
-    // Combine hierarchical and additional nodes and links
+    // Combine nodes and links
     const allNodes = hierarchicalNodes.concat(additionalNodes);
     const allLinks = hierarchicalLinks.concat(additionalLinks);
 
@@ -33,40 +26,28 @@ import { fetchData, processUserMovements } from './dataProcessor.js'; // Uncomme
         node.id = node.data.url || `node-${index}`;
     });
 
-    // Debugging: Check if all link references exist in nodes
-    allLinks.forEach(link => {
-        const sourceExists = allNodes.some(node => node.id === link.source);
-        const targetExists = allNodes.some(node => node.id === link.target);
-        if (!sourceExists || !targetExists) {
-            console.log("Missing node for link:", link);
-        }
-    });
-
-    // Adjust the links to use node objects
+    // Adjust links to use node objects
     allLinks.forEach(link => {
         if (typeof link.source === 'string') {
-            link.source = allNodes.find(node => node.id === link.source) || link.source;
+            link.source = allNodes.find(node => node.id === link.source);
         }
         if (typeof link.target === 'string') {
-            link.target = allNodes.find(node => node.id === link.target) || link.target;
+            link.target = allNodes.find(node => node.id === link.target);
         }
     });
 
-    // Visualization dimensions and setup
-    const width = 1160;
-    const height = 700;
+    // Visualization setup
+    const width = 1160, height = 700;
+    const color = d => d.data.isNew ? '#ff4500' : `hsl(135, 63%, ${43 - d.depth}%)`;
 
-    // Define the color function
-    const color = d => d.data.isNew ? '#ff4500' : `hsl(135, 63%, ${43 - d.depth}%)`; // New nodes in red
-
-    // Set up the force simulation
+    // Force simulation setup
     const simulation = d3.forceSimulation(allNodes)
         .force("link", d3.forceLink(allLinks).id(d => d.id))
         .force("charge", d3.forceManyBody().strength(-50))
         .force("center", d3.forceCenter(width / 2, height / 2))
         .force("collide", d3.forceCollide(d => Math.max(d.data.name.length * 1, 20)));
 
-    // Create the SVG container
+    // SVG container
     const svg = d3.select("body").append("svg")
         .attr("width", width)
         .attr("height", height)
@@ -77,31 +58,30 @@ import { fetchData, processUserMovements } from './dataProcessor.js'; // Uncomme
 
     const graphGroup = svg.append("g");
 
-    // Draw the links
+    // Draw links
     const link = graphGroup.append("g")
         .attr("stroke", "#999")
         .attr("stroke-width", 2)
         .selectAll("line")
         .data(allLinks)
-        .join("line");
+        .join("line")
+        .attr("stroke", d => d.isNew ? "red" : "#999");
 
-    // Draw the nodes
+    // Draw nodes
     const node = graphGroup.append("g")
         .selectAll("g")
         .data(allNodes)
         .join("g")
         .call(drag(simulation));
 
-    // Add tooltips, rectangles, and text for each node
+    // Add tooltips, rectangles, and text
     node.append("title").text(d => d.data.name);
-
     node.append("rect")
         .attr("width", d => d.data.name.length * 5.2)
         .attr("height", 20)
         .attr("fill", color)
         .attr("x", d => -d.data.name.length * 5.2 / 2)
         .attr("y", -10);
-
     node.append("text")
         .attr("font-family", "Raleway, Helvetica Neue, Helvetica")
         .attr("font-size", 10)
@@ -109,38 +89,35 @@ import { fetchData, processUserMovements } from './dataProcessor.js'; // Uncomme
         .attr("text-anchor", "middle")
         .text(d => d.data.name);
 
-    // Define the drag behavior
+    // Drag behavior
     function drag(simulation) {
         function dragstarted(event, d) {
             if (!event.active) simulation.alphaTarget(0.3).restart();
             d.fx = d.x;
             d.fy = d.y;
         }
-
         function dragged(event, d) {
             d.fx = event.x;
             d.fy = event.y;
         }
-
         function dragended(event, d) {
             if (!event.active) simulation.alphaTarget(0);
-            d.fx = null;
-            d.fy = null;
+            // Keep nodes sticky
+            d.fx = d.x;
+            d.fy = d.y;
         }
-
         return d3.drag()
             .on("start", dragstarted)
             .on("drag", dragged)
             .on("end", dragended);
     }
 
-    // Update positions on simulation tick
+    // Simulation tick
     simulation.on("tick", () => {
         link.attr("x1", d => d.source.x)
             .attr("y1", d => d.source.y)
             .attr("x2", d => d.target.x)
             .attr("y2", d => d.target.y);
-
         node.attr("transform", d => `translate(${d.x}, ${d.y})`);
     });
 })();
