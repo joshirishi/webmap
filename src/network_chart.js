@@ -1,11 +1,16 @@
 function calculateMissingLinks(processedData, originalWebMap) {
     let missingLinks = new Set();
 
+    // Function to normalize URLs for consistent comparison
+    function normalizeUrl(url) {
+        return url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+    }
+
     // Function to extract links from a hierarchical data structure
     function extractLinks(node, linksSet) {
         if (node.children) {
             node.children.forEach(child => {
-                linksSet.add(node.url + '->' + child.url);
+                linksSet.add(normalizeUrl(node.url) + '->' + normalizeUrl(child.url));
                 extractLinks(child, linksSet);
             });
         }
@@ -15,6 +20,7 @@ function calculateMissingLinks(processedData, originalWebMap) {
     let originalLinks = new Set();
 
     // Extract links from both processedData and originalWebMap
+    // Assuming that processedData and originalWebMap are already the root nodes of each hierarchy
     extractLinks(processedData, processedLinks);
     extractLinks(originalWebMap, originalLinks);
 
@@ -27,6 +33,7 @@ function calculateMissingLinks(processedData, originalWebMap) {
 
     return missingLinks;
 }
+
 
 (async function() {
     const websiteId = 'example.com-username'; // Replace with your website identifier
@@ -69,6 +76,7 @@ function calculateMissingLinks(processedData, originalWebMap) {
     // Fetch the original web map data
         const originalWebMapResponse = await fetch('http://localhost:8000/api/get-webmap?url=https://example.com-username');
         const originalWebMap = await originalWebMapResponse.json();
+        
 
     // Process the final data to match the expected structure for d3.hierarchy
        // const processedData = processFinalData(finalData);
@@ -125,6 +133,7 @@ const { webMap, backtracking } = rawData;
     .data(links)
     .join("line")
     .attr("stroke", "black") // Default color for all links
+    .attr("opacity", 0.5)
     .attr("stroke-width", d => {
         // Apply the weight for thickness. Ensure that 'weight' is a number.
         // Adjust the multiplier to get a visible difference in thickness.
@@ -133,11 +142,11 @@ const { webMap, backtracking } = rawData;
     .attr("stroke-dasharray", d => {
         // If the link is missing, style it with a blue dashed line
         const linkKey = `${d.source.data.url}->${d.target.data.url}`;
-        /*if (missingLinks.has(linkKey)) {
+        if (missingLinks.has(linkKey)) {
             return "4,2"; // Dashed style for missing links
         } else {
             return ""; // Solid line for normal links
-        }*/
+        }
     })
     .attr("stroke", d => {
         // Change the color to blue if the link is missing
