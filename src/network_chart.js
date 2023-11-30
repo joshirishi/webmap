@@ -1,3 +1,33 @@
+function calculateMissingLinks(processedData, originalWebMap) {
+    let missingLinks = new Set();
+
+    // Function to extract links from a hierarchical data structure
+    function extractLinks(node, linksSet) {
+        if (node.children) {
+            node.children.forEach(child => {
+                linksSet.add(node.url + '->' + child.url);
+                extractLinks(child, linksSet);
+            });
+        }
+    }
+
+    let processedLinks = new Set();
+    let originalLinks = new Set();
+
+    // Extract links from both processedData and originalWebMap
+    extractLinks(processedData, processedLinks);
+    extractLinks(originalWebMap, originalLinks);
+
+    // Find links in processedLinks not in originalLinks
+    processedLinks.forEach(link => {
+        if (!originalLinks.has(link)) {
+            missingLinks.add(link);
+        }
+    });
+
+    return missingLinks;
+}
+
 (async function() {
     const websiteId = 'example.com-username'; // Replace with your website identifier
     // Base color in HSL format
@@ -36,6 +66,17 @@
             return null;
         }
     }
+    // Fetch the original web map data
+        const originalWebMapResponse = await fetch('http://localhost:8000/api/get-webmap?url=https://example.com-username');
+        const originalWebMap = await originalWebMapResponse.json();
+
+    // Process the final data to match the expected structure for d3.hierarchy
+       // const processedData = processFinalData(finalData);
+
+   // Calculate missing links by comparing the finalData with the originalWebMap
+      //  const missingLinks = calculateMissingLinks(finalData, originalWebMap);
+
+
     
     const rawData = await fetchData();
     if (!rawData || !rawData.webMap) {
@@ -46,6 +87,9 @@
 
 // Extract webMap and backtracking data
 const { webMap, backtracking } = rawData;
+ // Calculate missing links by comparing the finalData with the originalWebMap
+    // Assuming that webMap is the processedData equivalent from finalDatas3
+    const missingLinks = calculateMissingLinks(webMap, originalWebMap);
 
     const data = rawData[0];
     const width = 1160;
@@ -76,39 +120,37 @@ const { webMap, backtracking } = rawData;
     const graphGroup = svg.append("g");
 
     const link = graphGroup.append("g")
-    .attr("stroke-width", e)
     .attr("stroke-opacity", 1)
     .selectAll("line")
     .data(links)
     .join("line")
-    .attr("stroke", d => {
-        // Since backtracking is an object, use the 'in' operator to check for the key
-        const linkKey = `${d.source.data.url}->${d.target.data.url}`;
-        const isBacktrack = linkKey && backtracking;
-        return isBacktrack ? "red" : d; // Use a ternary operator to determine the color
-    })
-    
+    .attr("stroke", "black") // Default color for all links
     .attr("stroke-width", d => {
-        // Define the link key
-        const linkKey = `${d.source.data.url}->${d.target.data.url}`;
-    
-        // Check if the key exists in the backtracking object to determine if it's a backtrack
-        const isBacktrack = linkKey && backtracking;
-    
-        // If it's a backtrack, use a special width, otherwise use the default or the weight
-        return isBacktrack ? (backtracking[linkKey] * 1.5) : (d.target.data.weight || e);
+        // Apply the weight for thickness. Ensure that 'weight' is a number.
+        // Adjust the multiplier to get a visible difference in thickness.
+        return d.target.data.weight ? d.target.data.weight * 2 : 1;
     })
-    
-    
     .attr("stroke-dasharray", d => {
-        // Check if the link is a backtrack or missing link
+        // If the link is missing, style it with a blue dashed line
         const linkKey = `${d.source.data.url}->${d.target.data.url}`;
-        const isBacktrack = linkKey && backtracking;
-        const isMissingLink = !d.target.data.weight; // Assuming missing links have no weight
-    
-        // Return the dasharray string based on whether it's a backtrack or missing link
-        return isBacktrack || isMissingLink ? "4,2" : "";
+        /*if (missingLinks.has(linkKey)) {
+            return "4,2"; // Dashed style for missing links
+        } else {
+            return ""; // Solid line for normal links
+        }*/
     })
+    .attr("stroke", d => {
+        // Change the color to blue if the link is missing
+        const linkKey = `${d.source.data.url}->${d.target.data.url}`;
+        if (missingLinks.has(linkKey)) {
+            return "black"; // Blue color for missing links
+        } else {
+            return "red"; // Default color for normal links
+        }
+    });
+    
+    
+    
     
     const node = graphGroup.append("g")
         .attr("stroke", "#fff")
