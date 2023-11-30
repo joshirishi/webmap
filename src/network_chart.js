@@ -4,9 +4,11 @@
     const baseHue = 135; // Example: blue hue
     const baseSaturation = 63; // Percentage
 
+
+
     function shadeColorByDepth(depth) {
         // Adjust lightness based on depth (deeper nodes are darker)
-        const lightness = 43 - depth ;
+        const lightness = 43 - depth*10;
         return `hsl(${baseHue}, ${baseSaturation}%, ${lightness}%)`;
     }
 
@@ -19,28 +21,37 @@
     let f = 5.2;       // Rectangle width multiplier
     let g = 20;        // Maximum text length
 
+ 
     async function fetchData() {
         try {
-            const response = await fetch(`http://localhost:8000/api/get-webmap?websiteId=${encodeURIComponent(websiteId)}`);
+            const response = await fetch(`http://localhost:8000/api/get-final-data`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
             const data = await response.json();
-            return data;
+            // Assuming the response is an array and you want the first item
+            return data.length > 0 ? data[0] : null;
         } catch (error) {
             console.error('Error fetching data:', error);
             return null;
         }
     }
-
+    
     const rawData = await fetchData();
-    if (!rawData || rawData.length === 0) {
+    if (!rawData || !rawData.webMap) {
         console.error('Failed to fetch data or data is empty.');
         return;
     }
+    
+
+// Extract webMap and backtracking data
+const { webMap, backtracking } = rawData;
 
     const data = rawData[0];
     const width = 1160;
     const height = 700;
 
-    const root = d3.hierarchy(data); 
+    const root = d3.hierarchy(webMap); 
     const links = root.links();
     const nodes = root.descendants();
      // Modify the color function to use the shadeColorByDepth function
@@ -65,13 +76,40 @@
     const graphGroup = svg.append("g");
 
     const link = graphGroup.append("g")
-        .attr("stroke", d)
-        .attr("stroke-width", e)
-        .attr("stroke-opacity", 1)
-        .selectAll("line")
-        .data(links)
-        .join("line");
-
+    .attr("stroke-width", e)
+    .attr("stroke-opacity", 1)
+    .selectAll("line")
+    .data(links)
+    .join("line")
+    .attr("stroke", d => {
+        // Since backtracking is an object, use the 'in' operator to check for the key
+        const linkKey = `${d.source.data.url}->${d.target.data.url}`;
+        const isBacktrack = linkKey && backtracking;
+        return isBacktrack ? "red" : d; // Use a ternary operator to determine the color
+    })
+    
+    .attr("stroke-width", d => {
+        // Define the link key
+        const linkKey = `${d.source.data.url}->${d.target.data.url}`;
+    
+        // Check if the key exists in the backtracking object to determine if it's a backtrack
+        const isBacktrack = linkKey && backtracking;
+    
+        // If it's a backtrack, use a special width, otherwise use the default or the weight
+        return isBacktrack ? (backtracking[linkKey] * 1.5) : (d.target.data.weight || e);
+    })
+    
+    
+    .attr("stroke-dasharray", d => {
+        // Check if the link is a backtrack or missing link
+        const linkKey = `${d.source.data.url}->${d.target.data.url}`;
+        const isBacktrack = linkKey && backtracking;
+        const isMissingLink = !d.target.data.weight; // Assuming missing links have no weight
+    
+        // Return the dasharray string based on whether it's a backtrack or missing link
+        return isBacktrack || isMissingLink ? "4,2" : "";
+    })
+    
     const node = graphGroup.append("g")
         .attr("stroke", "#fff")
         .attr("stroke-width", 0)
@@ -130,13 +168,7 @@
             .style("opacity", 0);
     };
 
-    const nodeHoverTooltip = (d) => {
-        return `
-            <strong>URL:</strong> ${d.data.url}<br>
-            <strong>Additional Info:</strong> Some info here
-        `;
-    };
-
+   
     function formatText(d) {
         let formattedText = d.data.name.length > g ? d.data.name.substring(0, g) + "..." : d.data.name;
         let rectWidth = formattedText.length * f;
@@ -146,14 +178,14 @@
     node.each(function(d) {
         const { formattedText, rectWidth } = formatText(d);
         const group = d3.select(this);
-
+    
         group.append("rect")
             .attr("width", rectWidth)
             .attr("height", c)
             .attr("fill", color(d))
             .attr("x", -rectWidth / 2)
             .attr("y", -c / 2);
-
+    
         group.append("text")
             .attr('font-family', 'Raleway', 'Helvetica Neue, Helvetica')
             .attr("font-size", 10)
@@ -162,6 +194,16 @@
             .attr("dy", ".35em")
             .text(formattedText);
     });
+
+    const nodeHoverTooltip = (d) => {
+        // Include weight information in the tooltip
+        const weight = d.data.weight ? `<strong>Weight:</strong> ${d.data.weight}<br>` : '';
+        return `
+            <strong>URL:</strong> ${d.data.url}<br>
+            ${weight}
+            <strong>Additional Info:</strong> Some info here
+        `;
+    };
 
     simulation.on("tick", () => {
         link
