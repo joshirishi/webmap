@@ -1,28 +1,40 @@
+// Function to normalize URLs for consistent comparison
+function normalizeUrl(url) {
+    return url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+}
+
 function calculateMissingLinks(processedData, originalWebMap) {
     let missingLinks = new Set();
 
-    // Function to normalize URLs for consistent comparison
-    function normalizeUrl(url) {
-        return url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
-    }
-
     // Function to extract links from a hierarchical data structure
-    function extractLinks(node, linksSet) {
+    function extractLinks(node, linksSet, weightsMap) {
         if (node.children) {
             node.children.forEach(child => {
-                linksSet.add(normalizeUrl(node.url) + '->' + normalizeUrl(child.url));
-                extractLinks(child, linksSet);
+                const link = normalizeUrl(node.url) + '->' + normalizeUrl(child.url);
+                linksSet.add(link);
+                weightsMap[link] = child.weight || 1; // Default weight to 1 if not provided
+                extractLinks(child, linksSet, weightsMap);
             });
         }
     }
 
     let processedLinks = new Set();
     let originalLinks = new Set();
+    let weightsMap = {}; // To store weights of links
 
     // Extract links from both processedData and originalWebMap
-    // Assuming that processedData and originalWebMap are already the root nodes of each hierarchy
-    extractLinks(processedData, processedLinks);
-    extractLinks(originalWebMap, originalLinks);
+    extractLinks(processedData, processedLinks, weightsMap);
+
+    console.log('Processed web map links:', Array.from(processedLinks));
+
+    // Log the fetched original web map data
+    console.log('Fetched original web map data:', originalWebMap);
+
+    extractLinks(originalWebMap, originalLinks, {});
+
+     // Log the original web map links
+     console.log('Original web map links:', Array.from(originalLinks));
+
 
     // Find links in processedLinks not in originalLinks
     processedLinks.forEach(link => {
@@ -31,7 +43,23 @@ function calculateMissingLinks(processedData, originalWebMap) {
         }
     });
 
-    return missingLinks;
+     // Log the missing links
+     console.log('Missing links:', Array.from(missingLinks));
+
+    return { missingLinks, weightsMap, originalLinks };
+}
+
+
+
+// Function to determine the size of the node based on the weight (unique visitors)
+function getNodeSize(weight) {
+    // Example scaling function, you can adjust this as needed
+    return Math.sqrt(weight) * 1000; // Adjust the multiplier to scale the size
+}
+
+function getTextSize(weight) {
+    // Adjust text size based on weight
+    return Math.sqrt(weight) * 200; // Adjust the multiplier to scale the text size
 }
 
 
@@ -75,29 +103,34 @@ function calculateMissingLinks(processedData, originalWebMap) {
     }
     // Fetch the original web map data
         const originalWebMapResponse = await fetch('http://localhost:8000/api/get-webmap?url=https://example.com-username');
-        const originalWebMap = await originalWebMapResponse.json();
+      //  const originalWebMap = await originalWebMapResponse.json();
         
-
-    // Process the final data to match the expected structure for d3.hierarchy
-       // const processedData = processFinalData(finalData);
-
-   // Calculate missing links by comparing the finalData with the originalWebMap
-      //  const missingLinks = calculateMissingLinks(finalData, originalWebMap);
-
-
     
     const rawData = await fetchData();
+    console.log('Fetched raw data:', rawData);
+
     if (!rawData || !rawData.webMap) {
         console.error('Failed to fetch data or data is empty.');
         return;
     }
     
+ 
+ 
+ // Assuming the original web map data is wrapped in an array and we want the first item
+ const originalWebMap = rawData.webMap;
 
-// Extract webMap and backtracking data
-const { webMap, backtracking } = rawData;
+ // Log the corrected original web map data
+ console.log('Corrected original web map data:', originalWebMap);
+
+ // Extract webMap and backtracking data
+ const { webMap, backtracking } = rawData;
+ 
  // Calculate missing links by comparing the finalData with the originalWebMap
-    // Assuming that webMap is the processedData equivalent from finalDatas3
-    const missingLinks = calculateMissingLinks(webMap, originalWebMap);
+ // Now passing the correct originalWebMap root node
+ const { missingLinks, weightsMap, originalLinks } = calculateMissingLinks(webMap, webMap);
+
+ // Log the original web map links after passing the correct data
+ console.log('Original web map links after correction:', Array.from(originalLinks));
 
     const data = rawData[0];
     const width = 1160;
@@ -132,48 +165,40 @@ const { webMap, backtracking } = rawData;
     .selectAll("line")
     .data(links)
     .join("line")
-    .attr("stroke", "black") // Default color for all links
-    .attr("opacity", 0.5)
+    .attr("stroke", d => {
+        // Determine if the link is part of backtracking
+        const linkKey = `${normalizeUrl(d.source.data.url)}->${normalizeUrl(d.target.data.url)}`;
+        return missingLinks.has(linkKey) ? "red" : "black"; // Red for missing links
+    })
+    .attr("opacity", d => {
+        const linkKey = `${normalizeUrl(d.source.data.url)}->${normalizeUrl(d.target.data.url)}`;
+        return missingLinks.has(linkKey) ? 0.6 : 1; // 60% opacity for missing links
+    })
     .attr("stroke-width", d => {
-        // Apply the weight for thickness. Ensure that 'weight' is a number.
-        // Adjust the multiplier to get a visible difference in thickness.
-        return d.target.data.weight ? d.target.data.weight * 2 : 1;
+        // Here you might need to decide whether to use the source or target node's weight
+        // This example uses the target node's weight
+        return d.target.data.weight || 1; // Default to 1 if weight is undefined
     })
     .attr("stroke-dasharray", d => {
-        // If the link is missing, style it with a blue dashed line
-        const linkKey = `${d.source.data.url}->${d.target.data.url}`;
-        if (missingLinks.has(linkKey)) {
-            return "4,2"; // Dashed style for missing links
-        } else {
-            return ""; // Solid line for normal links
-        }
-    })
-    .attr("stroke", d => {
-        // Change the color to blue if the link is missing
-        const linkKey = `${d.source.data.url}->${d.target.data.url}`;
-        if (missingLinks.has(linkKey)) {
-            return "black"; // Blue color for missing links
-        } else {
-            return "red"; // Default color for normal links
-        }
+        const linkKey = `${normalizeUrl(d.source.data.url)}->${normalizeUrl(d.target.data.url)}`;
+        return missingLinks.has(linkKey) ? "4,2" : ""; // Dashed style for missing links
     });
     
     
     
-    
     const node = graphGroup.append("g")
-        .attr("stroke", "#fff")
-        .attr("stroke-width", 0)
-        .selectAll("g")
-        .data(nodes)
-        .join("g")
-        .call(drag(simulation))
-        .on('dblclick', (event, d) => {
-            window.open('about:blank', '_blank');
-        })
-        .on('mouseover', (event, d) => {
-            addTooltip(nodeHoverTooltip, d, event.pageX, event.pageY);
-        });
+    .attr("stroke", "#fff")
+    .attr("stroke-width", 0)
+    .selectAll("g")
+    .data(nodes)
+    .join("g")
+    .call(drag(simulation))
+    .on('dblclick', (event, d) => {
+        window.open('about:blank', '_blank');
+    })
+    .on('mouseover', (event, d) => {
+        addTooltip(nodeHoverTooltip, d, event.pageX, event.pageY);
+    });
 
  
     function drag(simulation) {
@@ -226,25 +251,66 @@ const { webMap, backtracking } = rawData;
         return { formattedText, rectWidth };
     }
 
-    node.each(function(d) {
-        const { formattedText, rectWidth } = formatText(d);
-        const group = d3.select(this);
-    
-        group.append("rect")
-            .attr("width", rectWidth)
-            .attr("height", c)
-            .attr("fill", color(d))
-            .attr("x", -rectWidth / 2)
-            .attr("y", -c / 2);
-    
-        group.append("text")
-            .attr('font-family', 'Raleway', 'Helvetica Neue, Helvetica')
-            .attr("font-size", 10)
-            .attr("fill", "white")
-            .attr("text-anchor", "middle")
-            .attr("dy", ".35em")
-            .text(formattedText);
-    });
+// Define a base size for nodes and text
+const baseNodeSize = 15; // Adjust this as necessary
+const baseTextSize = 18; // Adjust this as necessary
+const maxWeight = 100; // Set this to whatever the max weight for your dataset is
+
+// Helper function to calculate node size based on weight
+function calculateNodeSize(weight) {
+    return baseNodeSize + (weight / maxWeight) * baseNodeSize;
+}
+
+// Helper function to calculate text size based on node size
+function calculateTextSize(nodeSize) {
+    return baseTextSize * (nodeSize / baseNodeSize);
+}
+
+   // Helper functions to calculate size
+const maxNodeSize = 5000; // Maximum size for node rectangles
+const maxTextSize = 16; // Maximum size for text
+
+function calculateRectSize(weight) {
+    // Normalize the weight value to your range here
+    // This is an example normalization that assumes a max weight of 100
+    return Math.min(weight / 2, maxNodeSize);
+}
+
+function calculateTextSize(weight) {
+    // Normalize and ensure the text size is not larger than maxTextSize
+    return Math.min(Math.sqrt(weight) * 2, maxTextSize);
+}
+
+// Modify your existing node.each function
+node.each(function(d) {
+    // Calculate node size
+    const nodeWeight = d.data.weight || 1; // Default to 1 if weight is undefined
+    const nodeSize = calculateNodeSize(nodeWeight);
+    const textSize = calculateTextSize(nodeSize);
+
+    const group = d3.select(this);
+
+    // Append rectangle with increased size
+    group.append("rect")
+        .attr("width", nodeSize)
+        .attr("height", nodeSize)
+        .attr("fill", color(d))
+        .attr("x", -nodeSize / 2)
+        .attr("y", -nodeSize / 2);
+
+    // Append text with increased size
+    const formattedText = d.data.name.length > g ? d.data.name.substring(0, g) + "..." : d.data.name;
+
+    group.append("text")
+        .attr('font-family', 'Raleway', 'Helvetica Neue, Helvetica')
+        .attr("font-size", textSize)
+        .attr("fill", "white")
+        .attr("text-anchor", "middle")
+        .attr("x", 0)
+        .attr("y", textSize / 4)
+        .text(formattedText);
+});
+
 
     const nodeHoverTooltip = (d) => {
         // Include weight information in the tooltip
