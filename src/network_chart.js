@@ -64,7 +64,7 @@ function getTextSize(weight) {
 
 
 (async function() {
-    const websiteId = 'example.com-username'; // Replace with your website identifier
+    const websiteId = 'journeys-unlimited.com-username'; // Replace with your website identifier
     // Base color in HSL format
     const baseHue = 135; // Example: blue hue
     const baseSaturation = 63; // Percentage
@@ -89,7 +89,7 @@ function getTextSize(weight) {
  
     async function fetchData() {
         try {
-            const response = await fetch(`http://localhost:8000/api/get-final-data`);
+            const response = await fetch(`http://localhost:8000/api/get-webmap?url=https://journeys-unlimited.com-username`);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
@@ -102,7 +102,7 @@ function getTextSize(weight) {
         }
     }
     // Fetch the original web map data
-        const originalWebMapResponse = await fetch('http://localhost:8000/api/get-webmap?url=https://example.com-username');
+        const originalWebMapResponse = await fetch('http://localhost:8000/api/get-webmap?url=https://journeys-unlimited.com-username');
       //  const originalWebMap = await originalWebMapResponse.json();
         
     

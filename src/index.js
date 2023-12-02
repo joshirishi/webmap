@@ -2,7 +2,7 @@ const puppeteer = require('puppeteer');
 const axios = require('axios');
 
 // Configuration
-const maxDepth = 30;
+const maxDepth = 3;
 const targetUrl = 'https://journeys-unlimited.com'; // Replace with your target URL
 const visitedUrls = new Set();
 const concurrentLimit = 0;
@@ -12,7 +12,7 @@ let currentDepth = 0;
 function getDomainFromUrl(url) {
     const matches = url.match(/^https?:\/\/([^/?#]+)(?:[/?#]|$)/i);
     return matches && matches[1].replace('www.', '');
-  }
+  } 
   
   // Function to generate the websiteId
   function generateWebsiteId(url, username) {
