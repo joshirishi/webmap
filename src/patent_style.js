@@ -90,25 +90,41 @@ const combinedGraphData = {
     .force("charge", d3.forceManyBody())
     .force("center", d3.forceCenter(width / 2, height / 2));
 
+    // Define the arrowheads
     svg.append("defs").selectAll("marker")
         .data(["end"])
         .enter().append("marker")
         .attr("id", String)
         .attr("viewBox", "0 -5 10 10")
-        .attr("refX", 25)
+        .attr("refX", 15) // Position of the arrowhead
+        .attr("refY", 0)
         .attr("markerWidth", 6)
         .attr("markerHeight", 6)
         .attr("orient", "auto")
         .append("path")
-        .attr("d", "M0,-5L10,0L0,5");
+        .attr("d", "M0,-5L10,0L0,5")
+        .attr("fill", "black");
 
     const link = graphGroup.append("g")
         .attr("class", "links")
-        .selectAll("line")
+        .selectAll("path")
         .data(graphData.links)
-        .enter().append("line")
+        .enter().append("path")
+        .attr("stroke", "black")  // Ensure the stroke is a visible color
         .attr("stroke-width", 2)
         .attr("marker-end", "url(#end)");
+
+
+
+    const text = graphGroup.append("g")
+        .attr("class", "texts")
+        .selectAll("text")
+        .data(graphData.nodes)
+        .enter().append("text")
+        .attr("dx", 12) // Offset from the node center
+        .attr("dy", ".35em") // Vertical offset to align text
+        .text(d => d.name); // Assuming each node data has a `name` property
+
 
     const node = graphGroup.append("g")
         .attr("class", "nodes")
@@ -134,30 +150,28 @@ const combinedGraphData = {
 
     function dragended(event, d) {
         if (!event.active) simulation.alphaTarget(0);
-        d.fx = null;
-        d.fy = null;
+       // d.fx = null;
+       // d.fy = null;
     }
 
-    simulation.on("tick", () => {
-        // Debugging: Log the position of the first link to see if it's updating
-        if (graphData.links.length > 0) {
-            console.log('First link position:', {
-                sourceX: graphData.links[0].source.x,
-                sourceY: graphData.links[0].source.y,
-                targetX: graphData.links[0].target.x,
-                targetY: graphData.links[0].target.y
-            });
-        }
-    
-        // Update the positions of the links and nodes
-        link
-            .attr("x1", d => d.source.x)
-            .attr("y1", d => d.source.y)
-            .attr("x2", d => d.target.x)
-            .attr("y2", d => d.target.y);
-    
-        node
-            .attr("cx", d => d.x)
-            .attr("cy", d => d.y);
+    // Adjust the simulation's tick event handler
+simulation.on("tick", () => {
+    // Draw the links as curved paths
+    link.attr("d", d => {
+        const dx = d.target.x - d.source.x,
+              dy = d.target.y - d.source.y,
+              dr = Math.sqrt(dx * dx + dy * dy) * 2; // Increase the 2 to make more curvature
+        return `M ${d.source.x} ${d.source.y} A ${dr} ${dr} 0 0 1 ${d.target.x} ${d.target.y}`;
     });
+
+    // Update node positions
+    node
+        .attr("cx", d => d.x)
+        .attr("cy", d => d.y);
+
+    // Update text label positions
+    text
+        .attr("x", d => d.x + 10) // Offset the text a bit to the right of the node
+        .attr("y", d => d.y);
+});
 })();
