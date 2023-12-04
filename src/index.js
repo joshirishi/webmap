@@ -2,7 +2,7 @@ const puppeteer = require('puppeteer');
 const axios = require('axios');
 
 // Configuration
-const maxDepth = 3;
+const maxDepth = 10;
 const targetUrl = 'https://journeys-unlimited.com'; // Replace with your target URL
 const visitedUrls = new Set();
 const concurrentLimit = 0;
