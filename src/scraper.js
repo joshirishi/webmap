@@ -1,12 +1,22 @@
 const puppeteer = require('puppeteer');
 const axios = require('axios');
 
+let browser; // Global browser instance
+
+
 // Configuration
-const maxDepth = 2;
-const targetUrl = 'https://journeys-unlimited.com'; // Replace with your target URL
+const maxDepth = 5;
+const targetUrl = 'https://journeys-unlimited.com/'; // Replace with your target URL
 const visitedUrls = new Set();
 const concurrentLimit = 5; // Limit the number of concurrent page processing
 let currentDepth = 0;
+/*
+const start = new Date().getTime();
+await page.goto(currentUrl, { waitUntil: 'networkidle2', timeout: 30000 });
+const end = new Date().getTime();
+console.log(`Page load time for ${currentUrl}: ${(end - start)}ms`);
+*/
+
 const websiteId = generateWebsiteId(targetUrl, 'username1'); // Replace 'username1' with your actual username
 
 // Generate websiteId based on URL and username
@@ -29,7 +39,7 @@ const processingQueue = [];
 // Initialize Puppeteer with User-Agent
 async function initBrowser() {
     const browser = await puppeteer.launch({
-        headless: true,
+        headless: "new",
         args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
     return browser;
@@ -87,22 +97,34 @@ async function scrapeWebMap(currentUrl, depth, browser) {
 }
 
 async function storeWebMapData() {
-    const data = {
-        websiteId: websiteId,
-        nodes: Array.from(nodes.values()),
-        links: Array.from(links).map(link => {
-            const [source, target] = link.split('|');
-            return { source, target, value: 1 };
-        })
-    };
+    // Function to send data in smaller batches
+    async function sendDataInBatches(nodes, links, batchSize) {
+        for (let i = 0; i < Math.max(nodes.length, links.length); i += batchSize) {
+            const nodeBatch = nodes.slice(i, i + batchSize);
+            const linkBatch = links.slice(i, i + batchSize);
+            const data = {
+                websiteId: websiteId,
+                nodes: nodeBatch,
+                links: linkBatch.map(link => {
+                    const [source, target] = link.split('|');
+                    return { source, target, value: 1 };
+                })
+            };
 
-    console.log('Sending scraped data to database with websiteId:', websiteId);
-    try {
-        await axios.post('http://localhost:8000/api/store-flat-webmap', data);
-        console.log('Flat web map data successfully stored');
-    } catch (error) {
-        console.error('Error storing flat web map data:', error);
+            try {
+                await axios.post('http://localhost:8000/api/store-flat-webmap', data);
+                console.log(`Batch ${i / batchSize} successfully stored`);
+            } catch (error) {
+                console.error('Error storing batch:', error);
+            }
+        }
     }
+
+    const nodesArray = Array.from(nodes.values());
+    const linksArray = Array.from(links);
+
+    console.log('Sending scraped data to database...');
+    await sendDataInBatches(nodesArray, linksArray, 50); // Adjust batch size as needed
 }
 
 (async function main() {

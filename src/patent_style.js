@@ -1,3 +1,137 @@
+
+async function fetchData() {
+    try {
+        const response = await fetch('http://localhost:8000/api/get-flat-webmap');
+        const dataArrays = await response.json();
+        const mergedData = {
+            nodes: [],
+            links: []
+        };
+
+        // Merging nodes and links
+        dataArrays.forEach(dataObject => {
+            mergedData.nodes.push(...dataObject.nodes);
+            mergedData.links.push(...dataObject.links);
+        });
+
+        // Create a Set of node IDs for quick lookup
+        const nodeIds = new Set(mergedData.nodes.map(node => node.id));
+
+        // Filter out links that reference non-existent nodes
+        mergedData.links = mergedData.links.filter(link => nodeIds.has(link.source) && nodeIds.has(link.target));
+
+        createNetworkChart(mergedData);
+    } catch (error) {
+        console.error('Error fetching data:', error);
+    }
+}
+
+function createNetworkChart(data) {
+    const width = 800;
+    const height = 600;
+    const svg = d3.select('#network-chart').append('svg').attr('width', width).attr('height', height);
+
+    // Create simulation with nodes and links
+    const simulation = d3.forceSimulation(data.nodes)
+        .force("link", d3.forceLink(data.links).id(d => d.id))
+        .force("charge", d3.forceManyBody())
+        .force("center", d3.forceCenter(width / 2, height / 2));
+
+    // Create links
+    const link = svg.append("g")
+        .attr("class", "links")
+        .selectAll("line")
+        .data(data.links)
+        .enter().append("line");
+
+    // Create nodes
+    const node = svg.append("g")
+        .attr("class", "nodes")
+        .selectAll("circle")
+        .data(data.nodes)
+        .enter().append("circle")
+        .attr("r", 5)
+        .call(d3.drag()
+            .on("start", dragStarted)
+            .on("drag", dragged)
+            .on("end", dragEnded));
+
+    // Add hover text (URLs)
+    node.append("title")
+        .text(d => d.id);
+
+            // Define arrow markers for graph links
+    svg.append('svg:defs').selectAll('marker')
+    .data(['end'])      // Different link/path types can be defined here
+    .enter().append('svg:marker')    // This section adds in the arrows
+    .attr('id', String)
+    .attr('viewBox', '0 -5 10 10')
+    .attr('refX', 15)  // Controls the shift along the path
+    .attr('refY', -1.5)
+    .attr('markerWidth', 6)
+    .attr('markerHeight', 6)
+    .attr('orient', 'auto')
+    .append('svg:path')
+    .attr('d', 'M0,-5L10,0L0,5');
+
+    // Add the links with arrows
+    const path = svg.append('svg:g').selectAll('path')
+    .data(force.links())
+    .enter().append('svg:path')
+    .attr('class', 'link')
+    .attr('marker-end', 'url(#end)'); // Use the marker as defined above
+
+    // Add node labels
+    const labels = svg.append("g")
+    .attr("class", "labels")
+    .selectAll("text")
+    .data(force.nodes())
+    .enter().append("text")
+    .attr("dx", 12)
+    .attr("dy", ".35em")
+    .text(d => d.id);  // The node data must have an 'id' property
+
+    // Add forces to nodes and links
+    simulation
+        .nodes(data.nodes)
+        .on("tick", ticked);
+
+    simulation.force("link")
+        .links(data.links);
+
+    function ticked() {
+        link
+            .attr("x1", d => d.source.x)
+            .attr("y1", d => d.source.y)
+            .attr("x2", d => d.target.x)
+            .attr("y2", d => d.target.y);
+
+        node
+            .attr("cx", d => d.x)
+            .attr("cy", d => d.y);
+    }
+
+    function dragStarted(event, d) {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        d.fx = d.x;
+        d.fy = d.y;
+    }
+
+    function dragged(event, d) {
+        d.fx = event.x;
+        d.fy = event.y;
+    }
+
+    function dragEnded(event, d) {
+        if (!event.active) simulation.alphaTarget(0);
+       // d.fx = null;
+       // d.fy = null;
+    }
+}
+
+fetchData();
+
+/*
 function processHierarchy(hierarchy) {
     let nodes = [], links = [];
 
@@ -70,103 +204,53 @@ const combinedGraphData = {
     links: allLinks
 };
 
-    const graphData = processHierarchy(rawData);
-    console.log('Processed graph data:', graphData);
+const graphData = processHierarchy(rawData);
+console.log('Processed graph data:', graphData);
 
-    const width = 1160;
-    const height = 700;
-    const svg = d3.select("body").append("svg")
-        .attr("width", width)
-        .attr("height", height)
-        .call(d3.zoom().on("zoom", (event) => {
-            graphGroup.attr("transform", event.transform);
-        }))
-        .append("g");
+const width = 1160, height = 700;
+const svg = d3.select("body").append("svg")
+    .attr("width", width)
+    .attr("height", height)
+    .call(d3.zoom().on("zoom", (event) => {
+        graphGroup.attr("transform", event.transform);
+    }))
+    .append("g");
 
-    const graphGroup = svg.append("g");
-    
-    const simulation = d3.forceSimulation(graphData.nodes)
-    .force("link", d3.forceLink(graphData.links)
-        .id(d => d.id)
-        .distance(100) // Increase this value to spread out the nodes more
-    )
-    .force("charge", d3.forceManyBody().strength(-400)) // Increase the magnitude of the negative value to increase repulsion
-    .force("center", d3.forceCenter(width / 2, height / 2))
-    .force("collide", d3.forceCollide().radius(d => 20)); // Adjust the radius for collision detection
+const graphGroup = svg.append("g");
 
-
-    // Define the arrowheads with no fill for the marker itself
-    svg.append("defs").selectAll("marker")
+// Define arrow markers for graph links
+svg.append("defs").selectAll("marker")
     .data(["end"])      // Different link/path types can be defined here
     .enter().append("marker")
     .attr("id", String)
     .attr("viewBox", "0 -5 10 10")
-    .attr("refX", 15)   // Must be tuned
+    .attr("refX", 15)   // Position of the arrowhead
     .attr("refY", 0)
     .attr("markerWidth", 6)
     .attr("markerHeight", 6)
     .attr("orient", "auto")
     .append("path")
     .attr("d", "M0,-5L10,0L0,5")
-    .attr("stroke", "none"); // No fill for the path inside the marker
+    .attr("fill", "grey");
 
+const simulation = d3.forceSimulation(graphData.nodes)
+    .force("link", d3.forceLink(graphData.links).id(d => d.id))
+    .force("charge", d3.forceManyBody())
+    .force("center", d3.forceCenter(width / 2, height / 2));
 
-    
-// Arrow color and opacity
-const arrowColor = "grey";
-const arrowOpacity = 0.6;
+// Create links as curved paths
+const link = graphGroup.append("g")
+    .attr("class", "links")
+    .selectAll("path")
+    .data(graphData.links)
+    .enter().append("path")
+    .attr("fill", "none")
+    .attr("stroke", "grey")
+    .attr("stroke-width", 2)
+    .attr("marker-end", "url(#end)");
 
-// Create the links as paths and set the stroke without a fill
-    const link = graphGroup.append("g")
-        .attr("class", "links")
-        .selectAll("path")
-        .data(graphData.links)
-        .enter().append("path")
-        .attr("stroke", "grey")  // Set the stroke to grey
-        .attr("stroke-opacity", 0.6) // Set the opacity to 0.6
-        .attr("stroke-width", 2)
-        .attr("fill", "none") // No fill for the path
-        .attr("marker-end", "url(#end)");
- 
-    function dragstarted(event, d) {
-        if (!event.active) simulation.alphaTarget(0.3).restart();
-        d.fx = d.x;
-        d.fy = d.y;
-    }
-
-    function dragged(event, d) {
-        d.fx = event.x;
-        d.fy = event.y;
-    }
-
-    function dragended(event, d) {
-        if (!event.active) simulation.alphaTarget(0);
-       // d.fx = null;
-       // d.fy = null;
-    }
-
-    // Adjust the simulation's tick event handler
-simulation.on("tick", () => {
-    // Draw the links as curved paths
-    link.attr("d", d => {
-        const dx = d.target.x - d.source.x,
-              dy = d.target.y - d.source.y,
-              dr = Math.sqrt(dx * dx + dy * dy) * 2; // Control the amount of curvature
-        // Use the 'A' command for a curved path
-        return `M ${d.source.x} ${d.source.y} A ${dr} ${dr} 0 0,1 ${d.target.x} ${d.target.y}`;
-    });
-
-    node
-    .attr("x", d => d.x - nodeWidth / 2)
-    .attr("y", d => d.y - nodeHeight / 2);
-
-text
-    .attr("x", d => d.x - nodeWidth / 2 + 5)
-    .attr("y", d => d.y + nodeHeight / 4);
-});
-
-const nodeWidth = 100;
-const nodeHeight = 20;
+// Create nodes as rectangles
+const nodeWidth = 120, nodeHeight = 30;
 const node = graphGroup.append("g")
     .attr("class", "nodes")
     .selectAll("rect")
@@ -174,23 +258,57 @@ const node = graphGroup.append("g")
     .enter().append("rect")
     .attr("width", nodeWidth)
     .attr("height", nodeHeight)
-    .attr("fill", "blue") // Set the fill to teal color
-    .attr("stroke", "#333") // Optional: add a stroke to the rectangles
+    .attr("fill", "blue")
+    .attr("stroke", "#333")
     .call(d3.drag()
         .on("start", dragstarted)
         .on("drag", dragged)
         .on("end", dragended));
 
-        // When appending text, handle the overflow and positioning
-// Text inside the rectangles
+// Add labels to the nodes
 const text = graphGroup.append("g")
-    .attr("class", "texts")
     .selectAll("text")
     .data(graphData.nodes)
     .enter().append("text")
-    .attr("x", d => d.x - nodeWidth / 2 + 5) // Position text inside the rectangle
-    .attr("y", d => d.y + nodeHeight / 4) // Vertically center text within the rectangle
-    .attr("fill", "white") // Set text color to contrast with teal background
-    .text(d => d.name.length > 20 ? d.name.substring(0, 20) + "..." : d.name);
+    .text(d => d.name)
+    .attr("x", d => d.x)
+    .attr("y", d => d.y)
+    .attr("dx", 5)  // Set a margin from the left of the rectangle
+    .attr("dy", 20) // Vertically center the text
+    .attr("fill", "white");
 
+// Update positions on each tick of the simulation
+simulation.on("tick", () => {
+    link.attr("d", d => {
+        // Calculate a curve for each link
+        const dx = d.target.x - d.source.x;
+        const dy = d.target.y - d.source.y;
+        const dr = Math.sqrt(dx * dx + dy * dy);
+        return `M ${d.source.x} ${d.source.y} A ${dr} ${dr} 0 0,1 ${d.target.x} ${d.target.y}`;
+    });
+
+    node.attr("x", d => d.x - nodeWidth / 2)
+        .attr("y", d => d.y - nodeHeight / 2);
+
+    text.attr("x", d => d.x - nodeWidth / 2 + 10)
+        .attr("y", d => d.y + nodeHeight / 4);
+});
+
+function dragstarted(event, d) {
+    if (!event.active) simulation.alphaTarget(0.3).restart();
+    d.fx = d.x;
+    d.fy = d.y;
+}
+
+function dragged(event, d) {
+    d.fx = event.x;
+    d.fy = event.y;
+}
+
+function dragended(event, d) {
+    if (!event.active) simulation.alphaTarget(0);
+    d.fx = null;
+    d.fy = null;
+}
 })();
+*/
